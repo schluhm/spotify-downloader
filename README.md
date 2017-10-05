@@ -15,7 +15,9 @@ Install `pytube` and `spotipy` using `pip`.
 
 ### Configuring `config.json`
 
-Check out `config-template.json` as a guide. It should be fairly self-explanatory - put in the API keys where it says "YOUR KEY HERE". You will absolutely need to set the APP_CONFIG settings, so do that (I put in the values as they are on my system, as a guide.)
+Check out `config-template.json` as a guide. It should be fairly self-explanatory - put in the API keys where it says "YOUR KEY HERE". You shouldn't need to touch anything under `GOOGLE_CONFIG`.
+
+You will absolutely need to set the APP_CONFIG settings, so do that (I put in the values as they are on my system, as a guide.)
 
 ### Installation
 
