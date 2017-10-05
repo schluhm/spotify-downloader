@@ -3,12 +3,11 @@
         "installed": {
             "client_id" : "YOUR CLIENT ID, which will look like SOME LONG HEX STRING.apps.googleusercontent.com",
             "client_secret" : "YOUR CLIENT SECRET",
-            "redirect_uris" : ["http://localhost", "urn:ietf:wg:oauth:2.0:oob"], //Be sure to add localhost as an accepted callback URL under Google Cloud Platform!
+            "redirect_uris" : ["http://localhost", "urn:ietf:wg:oauth:2.0:oob"],
             "auth_uri" : "https://accounts.google.com/o/oauth2/auth",
             "token_uri" : "https://accounts.google.com/o/oauth2/token"
         }
     },
-    //Don't touch anything under Google Config
     "GOOGLE_CONFIG" : {
         "youtube_read_write_ssl_scope" : "https://www.googleapis.com/auth/youtube.readonly",
         "api_service_name" : "youtube",
