@@ -63,12 +63,10 @@ def lookup_song(track_name, artists):
 
 def download_song(song, directory):
     #Hash the value of song, in order to serve as a unique identifier
-    video_ids = song["youtube_videoids"]
     song_hash = hashlib.md5(json.dumps(song).encode('utf-8')).hexdigest()
-    selected_video = download_youtube_video(song_hash, song, video_ids, directory)
+    selected_video = download_youtube_video(song_hash, song, song["youtube_videoids"], directory)
     song["youtube_videoid"] = selected_video
     process_video(song_hash, song, directory)
-    song.pop("youtube_videoids", None) #We no longer need multiple URLs for the same song, so get rid of them.
 
 def add_page_to_list(songlist, page):
     for track in page["items"]:
@@ -129,6 +127,8 @@ def download_missing_songs(songfile, secrets):
     except Exception as e:
         print traceback.format_exc()
     finally:
+        for song in listed_songs:
+            song.pop("youtube_videoids", None)
         write_songs_file(songfile, listed_songs)
 
 if __name__ == "__main__":
