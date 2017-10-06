@@ -2,6 +2,8 @@
 *.json
 !config_template.json
 
+###Python gitignore
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -106,3 +108,6 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+#Exclude my Spotify cache file
+.cache-tanuagg13
