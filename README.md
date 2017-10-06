@@ -6,7 +6,7 @@ This python script downloads all of the songs, in MP3 format, from all of your p
 
 ### Prerequisites
 
-You will need to set up a Google Cloud Platform application, create API keys and enable access to the YouTube API, and ensure localhost is set up as a valid callback URL. [Use this wizard to get your Cloud Platform application set up.](https://console.developers.google.com/flows/enableapi?apiid=youtube).
+You will need to set up a Google Cloud Platform application, create API keys and enable access to the YouTube API, and ensure localhost is set up as a valid callback URL. [Use this wizard to get your Cloud Platform application set up.](https://console.developers.google.com/flows/enableapi?apiid=youtube)
 
 Do the same thing with the Spotify API, i.e. set up an application, get API keys and add localhost as a valid callback URL. [Instructions](https://developer.spotify.com/web-api/tutorial/).
 
@@ -20,7 +20,7 @@ Install `pytube` and `spotipy` using `pip`.
 
 Check out `config-template.json` as a guide. It should be fairly self-explanatory - put in the API keys where it says "YOUR KEY HERE". You shouldn't need to touch anything under `GOOGLE_CONFIG`.
 
-You will absolutely need to set the APP_CONFIG settings, so do that (I put in the values as they are on my system, as a guide.) Here is a brief description of these items: 
+You will absolutely need to set the APP_CONFIG settings, so do that (I put in the values as they are on my system, as a guide.) Here is a brief description of these items:
 
 - `google_secrets_location` sets the location of the keys file that the Google API function reads in order to connect to YouTube.
 - `songs_file` sets the location of where the file containing data for all of the downloaded songs is located.
@@ -32,7 +32,7 @@ Run `python main.py` in a Terminal window to start installing the application. T
 
 On the first run of the script, the script will open a web browser to prompt you to sign in to Google to authenticate your connection with the Youtube API. Follow the instructions as prompted.
 
-Then, the script will prompt you to sign in to Spotify. After signing in, you will be directed to a page that cannot be opened because it is some localhost URL. You should copy-paste this URL into the Terminal from which you are running the application (i.e. paste it where the terminal demands `Enter the URL you were redireccted to:`).
+Then, the script will prompt you to sign in to Spotify. After signing in, you will be directed to a page that cannot be opened because it is some localhost-based URL. You should copy-paste this URL from your browser into the Terminal from which you are running the application (i.e. paste it where the terminal demands `Enter the URL you were redireccted to:`). When you press Enter, the application will begin downloading your songs.
 
 ### Running Application
 
