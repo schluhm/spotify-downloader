@@ -1,6 +1,6 @@
 # Spotify Downloader
 
-This python script downloads all of the songs from all of your playlists on Spotify.
+This python script downloads all of the songs, in MP3 format, from all of your playlists on Spotify. It searches for each of the songs from your playlist on YouTube, searches for (what it thinks is) the best video file, and then converts the video file into an audio file.
 
 ## Getting Started
 
@@ -17,7 +17,11 @@ Install `pytube` and `spotipy` using `pip`.
 
 Check out `config-template.json` as a guide. It should be fairly self-explanatory - put in the API keys where it says "YOUR KEY HERE". You shouldn't need to touch anything under `GOOGLE_CONFIG`.
 
-You will absolutely need to set the APP_CONFIG settings, so do that (I put in the values as they are on my system, as a guide.)
+You will absolutely need to set the APP_CONFIG settings, so do that (I put in the values as they are on my system, as a guide.) Here is a brief description of these items: 
+
+- `google_secrets_location` sets the location of the keys file that the Google API function reads in order to connect to YouTube.
+- `songs_file` sets the location of where the file containing data for all of the downloaded songs is located.
+- `download_path` sets the location of where the MP3s will be downloaded.
 
 ### Installation
 
