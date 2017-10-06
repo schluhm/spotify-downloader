@@ -6,11 +6,14 @@ This python script downloads all of the songs, in MP3 format, from all of your p
 
 ### Prerequisites
 
-You will need to set up a Google Cloud Platform application, create API keys and enable access to the YouTube API, and ensure localhost is set up as a valid callback URL. Do the same thing with the Spotify API.
+You will need to set up a Google Cloud Platform application, create API keys and enable access to the YouTube API, and ensure localhost is set up as a valid callback URL. [Use this wizard to get your Cloud Platform application set up.](https://console.developers.google.com/flows/enableapi?apiid=youtube).
+
+Do the same thing with the Spotify API, i.e. set up an application, get API keys and add localhost as a valid callback URL. [Instructions](https://developer.spotify.com/web-api/tutorial/).
 
 Install `pytube` and `spotipy` using `pip`.
 
 `pip install pytube`
+
 `pip install spotipy`
 
 ### Configuring `config.json`
@@ -25,7 +28,7 @@ You will absolutely need to set the APP_CONFIG settings, so do that (I put in th
 
 ### Installation
 
-Run `python main.py` in a Terminal window to start installing the application. There isn't really an "installation" process--all that you're going to do is set up some config files so that the script doesn't prompt you for credentials every time it accesses the Spotify and YouTube APIs.
+Run `python main.py` in a Terminal window to start installing the application. There isn't really an "installation" process - all that you're going to do is set up some config files so that the script doesn't prompt you for credentials every time it accesses the Spotify and YouTube APIs.
 
 On the first run of the script, the script will open a web browser to prompt you to sign in to Google to authenticate your connection with the Youtube API. Follow the instructions as prompted.
 
@@ -43,9 +46,9 @@ Feel free to send a pull request!
 
 ## Roadmap
 
-- Fixing bugs--for some reason, the script doesn't download every single song, and seems to repeatedly download all songs.
+- Fixing bugs - for some reason, the script doesn't download every single song, and seems to repeatedly download all songs.
 - Cleaning up the code and documenting it
-- Easier, less hardcode-y way of changing download URLs
+- Easier, less hardcoded way of changing download URLs
 - Possibly a GUI?
 
 ## License
