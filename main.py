@@ -141,8 +141,8 @@ if __name__ == "__main__":
     config_file.close()
 
     SPOTIFY_SECRETS = CONFIG["SPOTIFY_SECRETS"]
-    #playlistID = input("Which playlist would you like to download? Enter the link: \n")
-    #SPOTIFY_SECRETS["playlistID"] = playlistID.split('/')[-1]
+    playlistID = input("Which playlist would you like to download? Enter the link: \n")
+    SPOTIFY_SECRETS["playlistID"] = playlistID.split('/')[-1]
 
     YDL_OPTIONS['outtmpl'] = CONFIG["APP_CONFIG"]["download_path"] + '/%(title)s.%(ext)s'
     DOWNLOAD_PATH = CONFIG["APP_CONFIG"]["download_path"]
