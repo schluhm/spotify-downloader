@@ -2,7 +2,7 @@ import os
 import subprocess
 import urllib.request
 
-from youtube_dl import YoutubeDL
+from yt_dlp import YoutubeDL
 
 YDL_OPTIONS = {'noplaylist': 'True', 'format': 'bestaudio/best', 'outtmpl': '%(title)s.%(ext)s', 'cookiefile':'cookies.txt', 'postprocessors': [{
         'key': 'FFmpegVideoConvertor',
@@ -15,7 +15,7 @@ def download_youtube_video(song_hash, song, video_id, directory):
         os.makedirs(directory)
 
     url = 'https://youtube.com/watch?v=' + video_id
-    YDL_OPTIONS['outtmpl'] = directory + song_hash + '.%(ext)s'
+    YDL_OPTIONS['outtmpl'] = directory + "/" + song_hash + '.%(ext)s'
     with YoutubeDL(YDL_OPTIONS) as ydl:
         ydl.download(url_list=[url])
     return video_id
