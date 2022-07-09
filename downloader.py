@@ -4,22 +4,18 @@ import urllib.request
 
 from youtube_dl import YoutubeDL
 
-YDL_OPTIONS = {'noplaylist': 'True', 'format': 'bestaudio/best', 'outtmpl': 'E:/Music/%(title)s.%(ext)s', 'cookiefile':'cookies.txt', 'postprocessors': [{
+YDL_OPTIONS = {'noplaylist': 'True', 'format': 'bestaudio/best', 'outtmpl': '%(title)s.%(ext)s', 'cookiefile':'cookies.txt', 'postprocessors': [{
         'key': 'FFmpegVideoConvertor',
         'preferedformat': 'mp4',  # one of avi, flv, mkv, mp4, ogg, webm
     }]}
-
-
-DOWNLOAD_PATH = "E:/Music/"
 
 
 def download_youtube_video(song_hash, song, video_id, directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    print(directory)
     url = 'https://youtube.com/watch?v=' + video_id
-    YDL_OPTIONS['outtmpl'] = 'E:/Music/' + song_hash + '.%(ext)s'
+    YDL_OPTIONS['outtmpl'] = directory + song_hash + '.%(ext)s'
     with YoutubeDL(YDL_OPTIONS) as ydl:
         ydl.download(url_list=[url])
     return video_id

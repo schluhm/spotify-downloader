@@ -139,4 +139,5 @@ if __name__ == "__main__":
     config_file.close()
 
     SPOTIFY_SECRETS = CONFIG["SPOTIFY_SECRETS"]
+    YDL_OPTIONS['outtmpl'] = CONFIG["APP_CONFIG"]["download_path"] + '/%(title)s.%(ext)s'
     download_missing_songs(CONFIG["APP_CONFIG"]["songs_file"], SPOTIFY_SECRETS)
