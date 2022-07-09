@@ -3,12 +3,31 @@ import urllib.request
 import eyed3
 from eyed3.id3.frames import ImageFrame
 from yt_dlp import YoutubeDL
+import unicodedata
+import re
 
 YDL_OPTIONS = {'noplaylist': 'True', 'format': 'bestaudio/best', 'outtmpl': '%(title)s.%(ext)s', 'cookiefile':'cookies.txt', 'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'mp3',
         'preferredquality': '192',
     }]}
+
+
+def slugify(value, allow_unicode=False):
+    """
+    Taken from https://github.com/django/django/blob/master/django/utils/text.py
+    Convert to ASCII if 'allow_unicode' is False. Convert spaces or repeated
+    dashes to single dashes. Remove characters that aren't alphanumerics,
+    underscores, or hyphens. Convert to lowercase. Also strip leading and
+    trailing whitespace, dashes, and underscores.
+    """
+    value = str(value)
+    if allow_unicode:
+        value = unicodedata.normalize('NFKC', value)
+    else:
+        value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
+    value = re.sub(r'[^\w\s-]', '', value.lower())
+    return re.sub(r'[-\s]+', '-', value).strip('-_')
 
 
 def download_youtube_video(song_hash, song, video_id, directory):
@@ -39,7 +58,7 @@ def process_video(song_hash, song, directory):
     audiofile.tag.title = song["name"]
     audiofile.tag.images.set(ImageFrame.FRONT_COVER, open(u'{}.png'.format(directory + "/" + song_hash), 'rb').read(), 'image/png')
     audiofile.tag.save()
-    filename_sanitized = song["name"].replace('/', ' ')
+    filename_sanitized = slugify(song["name"])
     os.rename(u'{}.mp3'.format(directory + "/" + song_hash), u'{}.mp3'.format(directory + "/" + filename_sanitized))
 
     if os.path.isfile(directory + "/" + song_hash + ".png"):

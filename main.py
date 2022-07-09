@@ -1,5 +1,7 @@
 import hashlib
+import multiprocessing
 import traceback
+from itertools import repeat
 import spotipy
 from spotipy import util
 import json
@@ -61,11 +63,16 @@ def lookup_song(track_name, artists):
 
 
 def download_song(song, directory):
+    print("Download: " + song["name"] + " @ " + directory)
+
     # Hash the value of song, in order to serve as a unique identifier
     song_hash = hashlib.md5(json.dumps(song).encode('utf-8')).hexdigest()
     selected_video = download_youtube_video(song_hash, song, song["youtube_videoid"], directory)
     song["youtube_videoid"] = selected_video
     process_video(song_hash, song, directory)
+
+    song["downloaded"] = True
+    print("Downloaded: " + song["name"])
 
 
 def add_page_to_list(songlist, page):
@@ -106,21 +113,20 @@ def download_missing_songs(songfile, secrets):
     try:
         sp, playlist = get_spotify_playlist(secrets)
         playlist_songs = get_playlist_songs_list(playlist, sp, secrets)
-        for song in playlist_songs:
-            if [song["name"], song["artists"]] not in distilled_list:
-                print("Downloading song: " + song["name"])
-                download_song(song, DOWNLOAD_PATH)
 
-                song["downloaded"] = True
-                listed_songs.append(song)
-                print("Song downloaded")
+        new_songs = filter(lambda s: [s["name"], s["artists"]] not in distilled_list, playlist_songs)
+        listed_songs += new_songs
+
+        with multiprocessing.Pool(multiprocessing.cpu_count()) as p:
+            p.starmap(download_song, zip(new_songs, repeat(DOWNLOAD_PATH)))
+
+            p.close()
+            p.join()
 
         for song in listed_songs:
             if not song["downloaded"] or song_missing(song, DOWNLOAD_PATH):
-                print("Downloading song: " + song["name"])
                 download_song(song, DOWNLOAD_PATH)
-                song["downloaded"] = True
-                print("Song downloaded")
+
     except Exception as e:
         print(traceback.format_exc())
     finally:
@@ -135,8 +141,8 @@ if __name__ == "__main__":
     config_file.close()
 
     SPOTIFY_SECRETS = CONFIG["SPOTIFY_SECRETS"]
-    playlistID = input("Which playlist would you like to download? Enter the link: \n")
-    SPOTIFY_SECRETS["playlistID"] = playlistID.split('/')[-1]
+    #playlistID = input("Which playlist would you like to download? Enter the link: \n")
+    #SPOTIFY_SECRETS["playlistID"] = playlistID.split('/')[-1]
 
     YDL_OPTIONS['outtmpl'] = CONFIG["APP_CONFIG"]["download_path"] + '/%(title)s.%(ext)s'
     DOWNLOAD_PATH = CONFIG["APP_CONFIG"]["download_path"]
