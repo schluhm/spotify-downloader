@@ -26,7 +26,6 @@ You will absolutely need to set the APP_CONFIG settings, so do that (I put in th
 
 - `songs_file` sets the location of where the file containing data for all of the downloaded songs is located.
 - `download_path` sets the location of where the MP3s will be downloaded.
-- `playlistID` sets the desired playlist. The ID is everything that comes after https://open.spotify.com/playlist/ when sharing a playlist by link.
 
 ### Installation
 
@@ -36,7 +35,7 @@ The script will prompt you to sign in to Spotify. After signing in, you will be 
 
 ### Running Application
 
-Once you've done the above, just run `python main.py` to run the application. It will automatically download any songs that you have added to the given Spotify playlist. 
+Once you've done the above, just run `python main.py` to run the application. It will automatically prompt you for a playlist and download any songs that you have added to the given Spotify playlist. 
 
 Also, if a song is missing from your Downloads directory, it will re-download the song from the youtube URL provided in the `youtube_videoid` field for that song from the `songs.json` file. This is useful, since you can update this field manually for a song if the application doesn't find the right one for you on the first try. Note: if you are doing this, only put in the VIDEO ID within this field, not the full URL of the YouTube video. For example, if your youtube URL is http://youtube.com/watch?v=12345678, set the `youtube_videoid` to `12345678`. Also, remember to set `downloaded` to `false` for that song, and remember to delete it from the music folder, so that the application re-downloads it.
 

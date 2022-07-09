@@ -52,7 +52,6 @@ def lookup_song(track_name, artists):
     arg = track_name + " by " + ",".join(artists)
     with YoutubeDL(YDL_OPTIONS) as ydl:
         try:
-            print("Trying to get somethign")
             get(arg)
         except:
             video = ydl.extract_info(f"ytsearch:{arg}", download=False)['entries'][0]
@@ -102,13 +101,10 @@ def get_playlist_songs_list(playlist, sp, secrets):
 
 
 def download_missing_songs(songfile, secrets):
-    print("here we go")
     listed_songs = read_songs_file(songfile)
     distilled_list = [[x["name"], x["artists"]] for x in listed_songs]
     try:
-        print("really trying here")
         sp, playlist = get_spotify_playlist(secrets)
-        print("Getting authenticated")
         playlist_songs = get_playlist_songs_list(playlist, sp, secrets)
         for song in playlist_songs:
             if [song["name"], song["artists"]] not in distilled_list:
@@ -139,6 +135,9 @@ if __name__ == "__main__":
     config_file.close()
 
     SPOTIFY_SECRETS = CONFIG["SPOTIFY_SECRETS"]
+    playlistID = input("Which playlist would you like to download? Enter the link: \n")
+    SPOTIFY_SECRETS["playlistID"] = playlistID.split('/')[-1]
+
     YDL_OPTIONS['outtmpl'] = CONFIG["APP_CONFIG"]["download_path"] + '/%(title)s.%(ext)s'
     DOWNLOAD_PATH = CONFIG["APP_CONFIG"]["download_path"]
     download_missing_songs(CONFIG["APP_CONFIG"]["songs_file"], SPOTIFY_SECRETS)
