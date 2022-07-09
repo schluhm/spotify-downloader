@@ -3,15 +3,11 @@ import traceback
 import spotipy
 from spotipy import util
 import json
-from youtube_dl import YoutubeDL
 from downloader import *
 from requests import get
 
 SPOTIFY_SECRETS_FILE = "spotify_client_secret.json"
-YDL_OPTIONS = {'noplaylist': 'True', 'format': 'bestaudio/best', 'outtmpl': 'E:/Music/%(title)s.%(ext)s', 'postprocessors': [{
-        'key': 'FFmpegVideoConvertor',
-        'preferedformat': 'mp4',  # one of avi, flv, mkv, mp4, ogg, webm
-    }]}
+
 
 
 def get_spotify_playlist(secrets):

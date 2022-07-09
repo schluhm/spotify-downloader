@@ -4,7 +4,7 @@ import urllib.request
 
 from youtube_dl import YoutubeDL
 
-YDL_OPTIONS = {'noplaylist': 'True', 'format': 'bestaudio/best', 'outtmpl': 'E:/Music/%(title)s.%(ext)s', 'postprocessors': [{
+YDL_OPTIONS = {'noplaylist': 'True', 'format': 'bestaudio/best', 'outtmpl': 'E:/Music/%(title)s.%(ext)s', 'cookiefile':'cookies.txt', 'postprocessors': [{
         'key': 'FFmpegVideoConvertor',
         'preferedformat': 'mp4',  # one of avi, flv, mkv, mp4, ogg, webm
     }]}
