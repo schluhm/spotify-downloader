@@ -14,10 +14,6 @@ Install `youtube_dl` and `spotipy` using `pip`.
 
 `pip install spotipy`
 
-Also install lame encoder or if you're on Windows, just drop the .exe in your spotify-downloader directory.
-
-To load songs with age restricted videos install cookies.txt browser extension and save your Youtube Cookies to
-
 ### Configuring `config.json`
 
 Check out `config-template.json` as a guide. It should be fairly self-explanatory - put in the API keys where it says "YOUR KEY HERE".
