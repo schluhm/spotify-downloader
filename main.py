@@ -118,7 +118,8 @@ def download_missing_songs(songfile, secrets):
         listed_songs += new_songs
 
         with multiprocessing.Pool(multiprocessing.cpu_count()) as p:
-            p.starmap(download_song, zip(new_songs, repeat(DOWNLOAD_PATH)))
+            for s in p.starmap(download_song, zip(new_songs, repeat(DOWNLOAD_PATH))):
+                s["downloaded"] = True
 
             p.close()
             p.join()
@@ -126,6 +127,7 @@ def download_missing_songs(songfile, secrets):
         for song in listed_songs:
             if not song["downloaded"] or song_missing(song, DOWNLOAD_PATH):
                 download_song(song, DOWNLOAD_PATH)
+                song["downloaded"] = True
 
     except Exception as e:
         print(traceback.format_exc())
