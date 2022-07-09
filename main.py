@@ -7,7 +7,7 @@ from downloader import *
 from requests import get
 
 SPOTIFY_SECRETS_FILE = "spotify_client_secret.json"
-
+DOWNLOAD_PATH = ""
 
 
 def get_spotify_playlist(secrets):
@@ -140,4 +140,5 @@ if __name__ == "__main__":
 
     SPOTIFY_SECRETS = CONFIG["SPOTIFY_SECRETS"]
     YDL_OPTIONS['outtmpl'] = CONFIG["APP_CONFIG"]["download_path"] + '/%(title)s.%(ext)s'
+    DOWNLOAD_PATH = CONFIG["APP_CONFIG"]["download_path"]
     download_missing_songs(CONFIG["APP_CONFIG"]["songs_file"], SPOTIFY_SECRETS)
