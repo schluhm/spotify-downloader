@@ -123,3 +123,6 @@ lame_enc.dll
 
 # For MacOS
 .DS_Store
+
+#Datenbank
+data.db

@@ -276,7 +276,7 @@ def download(urls, out, name):
                 gui.update(
                     progress[current_track.id],
                     description=f"  {display_name} [light]  \[convert]",
-                    completed=args['progress']
+                    total=None
                 )
             elif status is TrackStatus.DONE:
                 gui.update(progress[current_track.id], completed=True, visible=False, refresh=True)
