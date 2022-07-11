@@ -288,7 +288,7 @@ def download(urls, out, name):
                 )
 
         gui.refresh()
-        download_tracks(songs_to_download, handle_progress)
+        download_tracks(songs_to_download, out, name, handle_progress)
 
     click.echo("")
     rich.print(f"Downloaded [purple]{len(songs_to_download)}[/purple] tracks [green]successfully[/green]")

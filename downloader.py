@@ -18,14 +18,19 @@ class TrackStatus(Enum):
     DONE = 5
 
 
-def download_tracks(tracks: List[TrackInfo], track_status_cb: Callable[[TrackInfo, TrackStatus, {}], None]):
+def download_tracks(
+        tracks: List[TrackInfo],
+        out: str,
+        name: str,
+        track_status_cb: Callable[[TrackInfo, TrackStatus, {}], None]
+):
     with Pool(multiprocessing.cpu_count()) as pool:
         manager = multiprocessing.Manager()
         callback_queue = manager.Queue()
 
         pool.starmap_async(
             _track_download_worker,
-            zip(tracks, repeat(callback_queue)),
+            zip(tracks, repeat(out), repeat(name), repeat(callback_queue)),
             callback=lambda _: callback_queue.put(None, block=True)
         )
 
@@ -40,11 +45,11 @@ def download_tracks(tracks: List[TrackInfo], track_status_cb: Callable[[TrackInf
         pool.join()
 
 
-def _track_download_worker(track: TrackInfo, callback_queue: Queue):
-    download_track(track, lambda t, status, args: callback_queue.put((t, status, args), block=True))
+def _track_download_worker(track: TrackInfo, out_dir, out_name, callback_queue: Queue):
+    download_track(track, out_dir, out_name, lambda t, status, args: callback_queue.put((t, status, args), block=True))
 
 
-def download_track(track: TrackInfo, track_status_cb: Callable[[TrackInfo, TrackStatus, {}], None]):
+def download_track(track: TrackInfo, out_dir, out_name, track_status_cb: Callable[[TrackInfo, TrackStatus, {}], None]):
     track_status_cb(track, TrackStatus.START, {})
     track_status_cb(track, TrackStatus.SEARCHING, {})
     time.sleep(random.randrange(0, 10))
