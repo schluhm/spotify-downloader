@@ -120,3 +120,6 @@ cookies.txt
 # lame
 lame.exe
 lame_enc.dll
+
+# For MacOS
+.DS_Store
