@@ -1,4 +1,5 @@
 import json
+import multiprocessing
 import os
 
 import click
@@ -159,11 +160,17 @@ def login_logout():
 )
 @click.option(
     "-n", "--name",
-    default="{artist.name}/{album.name}/{track.name}.mp3",
+    default="{artist}/{album}/{name}.mp3",
     type=str,
     help="How the files will be named"
 )
-def download(urls, out, name):
+@click.option(
+    "-c", "--cores",
+    default=multiprocessing.cpu_count(),
+    type=int,
+    help="The number of parallel downloads"
+)
+def download(urls, out, name, cores):
     """
     Download tracks.
 
@@ -195,6 +202,7 @@ def download(urls, out, name):
                 album["name"],
                 [x["url"] for x in album["images"]],
                 [x["name"] for x in track["artists"]],
+                track["artists"][0]["name"],
                 track["disc_number"],
                 track["track_number"],
                 album["release_date"]
@@ -202,7 +210,7 @@ def download(urls, out, name):
             return track_info
 
         tracks = []
-        name = "Unknown"
+        url_name = "Unknown"
 
         if "playlist" in url:
             click.echo(click.style(f"Playlist: {url}", bold=True))
@@ -222,23 +230,23 @@ def download(urls, out, name):
                 track = item["track"]
                 album = track["album"]
                 tracks.append(create_song(album, track))
-            name = sp.playlist(playlist_id=url, fields="name")["name"]
+            url_name = sp.playlist(playlist_id=url, fields="name")["name"]
         elif "album" in url:
             click.echo(click.style(f"Album: {url}", bold=True))
             album = sp.album(url)
             for track in util_read_pagination(sp, album["tracks"]):
                 tracks.append(create_song(album, track))
-            name = album["name"]
+            url_name = album["name"]
         elif "track" in url:
             click.echo(click.style(f"Track: {url}", bold=True))
             track = sp.track(url)
             tracks.append(create_song(track["album"], track))
-            name = track["name"]
+            url_name = track["name"]
         else:
             raise click.UsageError(f"Unrecognized URL: {url}")
 
         rich.print(
-            f"  ╚> [purple]{len(tracks)}[/purple] Track{'s' if len(tracks) != 1 else ''} in [cyan]{name}[/cyan]")
+            f"  ╚> [purple]{len(tracks)}[/purple] Track{'s' if len(tracks) != 1 else ''} in [cyan]{url_name}[/cyan]")
 
         songs_to_download.extend(tracks)
 
@@ -284,11 +292,11 @@ def download(urls, out, name):
                 gui.advance(overall, 1)
                 gui.update(
                     overall,
-                    description=f"Tracks [purple]{gui.tasks[overall].completed}[/purple] / [purple]{len(songs_to_download)}[/purple]"
+                    description=f"Tracks [purple]{gui.tasks[overall].completed}[/purple] / [purple]{len(songs_to_download)}[/purple] "
                 )
 
         gui.refresh()
-        download_tracks(songs_to_download, out, name, handle_progress)
+        download_tracks(songs_to_download, out, name, handle_progress, cores=cores)
 
     click.echo("")
     rich.print(f"Downloaded [purple]{len(songs_to_download)}[/purple] tracks [green]successfully[/green]")
