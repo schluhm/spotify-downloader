@@ -1,5 +1,6 @@
 import hashlib
 import multiprocessing
+from ssl import ALERT_DESCRIPTION_CLOSE_NOTIFY
 import traceback
 from itertools import repeat
 import spotipy
@@ -9,10 +10,11 @@ from downloader import *
 from requests import get
 
 SPOTIFY_SECRETS_FILE = "spotify_client_secret.json"
-DOWNLOAD_PATH = ""
+DOWNLOAD_PATH = "music"
 
 
-def get_spotify_playlist(secrets):
+# Takes Spotify Secrets and Playlist ID and returns Authentication and Playlist
+def get_spotify_playlist(secrets: json):
     auth_token = util.prompt_for_user_token(secrets["username"],
                                             'playlist-read-private',
                                             client_id=secrets["client_id"],
@@ -36,10 +38,10 @@ def read_songs_file(songfile):
         songs.close()
         return []
 
-
+# Dumps songs list to json (and makes it pretty)
 def write_songs_file(songfile, songs):
     song_file = open(songfile, "w")
-    song_file.write(json.dumps(songs))
+    song_file.write(json.dumps(json.loads(songs), indent=4, sort_keys=True))
     song_file.close()
 
 
@@ -49,16 +51,14 @@ def song_missing(song, directory):
     else:
         return True
 
-
+# Looks up tracks on youtube, returns youtube ID if found, otherwise returns None
 def lookup_song(track_name, artists):
     arg = track_name + " by " + ",".join(artists)
     with YoutubeDL(YDL_OPTIONS) as ydl:
         try:
-            get(arg)
-        except:
             video = ydl.extract_info(f"ytsearch:{arg}", download=False)['entries'][0]
-        else:
-            video = ydl.extract_info(arg, download=False)
+        except:
+            return None
     return video["id"]
 
 
@@ -66,7 +66,7 @@ def download_song(song, directory):
     print("Download: " + song["name"] + " @ " + directory)
 
     # Hash the value of song, in order to serve as a unique identifier
-    song_hash = hashlib.md5(json.dumps(song).encode('utf-8')).hexdigest()
+    song_hash = hashlib.md5(json.dumps(json.loads(song), indent=4, sort_keys=True).encode('utf-8')).hexdigest()
     selected_video = download_youtube_video(song_hash, song, song["youtube_videoid"], directory)
     song["youtube_videoid"] = selected_video
     process_video(song_hash, song, directory)
@@ -74,7 +74,7 @@ def download_song(song, directory):
     song["downloaded"] = True
     print("Downloaded: " + song["name"])
 
-
+# Adds songs with spotifies Metadata to list. Skips songs that aren't found on Youtube
 def add_page_to_list(songlist, page):
     for track in page["items"]:
         track = track["track"]
@@ -83,18 +83,22 @@ def add_page_to_list(songlist, page):
         images = [x["url"] for x in album["images"]]
         artists = [x["name"] for x in track["artists"]]
         track_name = track["name"]
+        id = lookup_song(track_name, artists)
+        if id is None: 
+            print("Couldn't find anything for " + track_name + " by " + ",".join(artists))
+            continue
         track_data = {
             "name": track_name,
             "album": album_name,
             "images": images,
             "artists": artists,
-            "youtube_videoid": lookup_song(track_name, artists),
+            "youtube_videoid": id,
             "downloaded": False,
         }
         songlist.append(track_data)
         print("Collected metadata from Spotify for " + track_name + " by " + ",".join(artists))
 
-
+# Adds all songs from playlist to songlist
 def get_playlist_songs_list(playlist, sp, secrets):
     songs_list = []
     tracks = sp.user_playlist(secrets["username"], playlist["id"], fields="tracks,next")["tracks"]
@@ -107,9 +111,9 @@ def get_playlist_songs_list(playlist, sp, secrets):
     return songs_list
 
 
-def download_missing_songs(songfile, secrets):
+def download_songs(songfile, secrets):
     listed_songs = read_songs_file(songfile)
-    distilled_list = [[x["name"], x["artists"]] for x in listed_songs]
+    distilled_list = [[x["name"], x["artists"]] for x in listed_songs]    
     try:
         sp, playlist = get_spotify_playlist(secrets)
         playlist_songs = get_playlist_songs_list(playlist, sp, secrets)
@@ -148,4 +152,4 @@ if __name__ == "__main__":
 
     YDL_OPTIONS['outtmpl'] = CONFIG["APP_CONFIG"]["download_path"] + '/%(title)s.%(ext)s'
     DOWNLOAD_PATH = CONFIG["APP_CONFIG"]["download_path"]
-    download_missing_songs(CONFIG["APP_CONFIG"]["songs_file"], SPOTIFY_SECRETS)
+    download_songs(CONFIG["APP_CONFIG"]["songs_file"], SPOTIFY_SECRETS)

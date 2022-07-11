@@ -30,7 +30,7 @@ def slugify(value, allow_unicode=False):
     return re.sub(r'[-\s]+', '-', value).strip('-_')
 
 
-def download_youtube_video(song_hash, song, video_id, directory):
+def download_youtube_video(song_hash: str, video_id: str, directory: str) -> str:
     if not os.path.exists(directory):
         os.makedirs(directory)
 
