@@ -6,7 +6,10 @@ import rich
 import rich_click as click
 import spotipy
 from click_params import URL
-from downloader import TrackInfo, download_tracks, TrackStatus
+from rich.console import Console
+from rich.table import Table
+
+from downloader import TrackInfo, download_tracks, TrackStatus, MessageSeverity
 from rich.progress import Progress
 from spotipy import CacheHandler
 from spotipy.oauth2 import SpotifyOAuth
@@ -266,6 +269,8 @@ def download(urls, out, name, cores, overwrite):
 
     click.echo("")
 
+    track_messages = {}
+
     with Progress() as gui:
         overall = gui.add_task(
             description=f"Tracks [purple]0[/purple] / [purple]{len(songs_to_download)}[/purple]",
@@ -308,6 +313,9 @@ def download(urls, out, name, cores, overwrite):
                     overall,
                     description=f"Tracks [purple]{gui.tasks[overall].completed}[/purple] / [purple]{len(songs_to_download)}[/purple] "
                 )
+            elif status is TrackStatus.MESSAGE:
+                args["track"] = current_track
+                track_messages.setdefault(current_track.id, []).append(args)
 
         gui.refresh()
         download_tracks(
@@ -321,6 +329,25 @@ def download(urls, out, name, cores, overwrite):
 
     click.echo("")
     rich.print(f"Downloaded [purple]{len(songs_to_download)}[/purple] tracks [green]successfully[/green]")
+
+    if len(track_messages) != 0:
+        table = Table(title="Warning and Error Log")
+        table.add_column("Track", justify="left",  no_wrap=True)
+        table.add_column("Severity", justify="center", no_wrap=True)
+        table.add_column("message", justify="left", overflow="fold")
+
+        for key, value in track_messages.items():
+            for entry in value:
+                serv = entry["serv"].name
+                if entry["serv"] == MessageSeverity.ERROR:
+                    serv = f"[red]{serv}[/red]"
+                elif entry["serv"] == MessageSeverity.WARNING:
+                    serv = f"[yellow]{serv}[/yellow]"
+
+                table.add_row(entry["track"].name, serv, entry["msg"])
+
+        console = Console()
+        console.print(table)
 
 
 def util_read_pagination(sp, results):

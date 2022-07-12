@@ -33,14 +33,20 @@ class TrackStatus(Enum):
     SEARCHING = 1
     DOWNLOADING = 2
     CONVERTING = 4
-    ERROR = 5
-    DONE = 6
+    DONE = 5
+    MESSAGE = 6
 
 
 class MessageType(Enum):
     POOL_DONE = 0
     POOL_ERROR = 1
     WORKER_STATUS = 2
+
+
+class MessageSeverity(Enum):
+    DEBUG = 0
+    WARNING = 1
+    ERROR = 2
 
 
 def download_tracks(
@@ -104,25 +110,43 @@ def _track_download_worker(track: TrackInfo, out_dir, out_name, overwrite, callb
 def download_track(track: TrackInfo, out_dir, out_name, overwrite,
                    track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None]):
     track_status_cb(track, TrackStatus.START, {})
-    track_status_cb(track, TrackStatus.SEARCHING, {})
-    video_id = lookup_song(track.name, track.artists)
-    if video_id:
-        track_status_cb(track, TrackStatus.DOWNLOADING, {'progress': 0})
-        download_youtube_video(track.id, video_id, out_dir,
-                               lambda progress: track_status_cb(track, TrackStatus.DOWNLOADING, {'progress': progress}),
-                               lambda: track_status_cb(track, TrackStatus.CONVERTING, {}))
-        process_video(track, out_dir, out_name, overwrite)
-    track_status_cb(track, TrackStatus.DONE, {})
+
+    def msg_cb(msg, serv):
+        track_status_cb(track, TrackStatus.MESSAGE, {'msg': msg, 'serv': serv})
+
+    try:
+        track_status_cb(track, TrackStatus.SEARCHING, {})
+        video_id = lookup_song(track, msg_cb)
+
+        if video_id:
+            track_status_cb(track, TrackStatus.DOWNLOADING, {'progress': 0})
+            download_youtube_video(track, video_id, out_dir,
+                                   msg_cb,
+                                   lambda progress: track_status_cb(track, TrackStatus.DOWNLOADING,
+                                                                    {'progress': progress}),
+                                   lambda: track_status_cb(track, TrackStatus.CONVERTING, {}))
+            process_video(track, out_dir, out_name, msg_cb, overwrite)
+    finally:
+        track_status_cb(track, TrackStatus.DONE, {})
 
 
 # Looks up tracks on youtube, returns youtube ID if found, otherwise returns None
-def lookup_song(track_name, artists):
-    arg = track_name + " by " + ",".join(artists)
-    with YoutubeDL(YDL_OPTIONS) as ydl:
-        return ydl.extract_info(f"ytsearch:{arg}", download=False)['entries'][0]["id"]
+def lookup_song(track: TrackInfo, msg_cb):
+    options = copy.deepcopy(YDL_OPTIONS)
+    options['logger'] = _YoutubeDLNullLogger(msg_cb)
+
+    arg = track.name + " by " + ",".join(track.artists)
+
+    try:
+        with YoutubeDL(options) as ydl:
+            return ydl.extract_info(f"ytsearch:{arg}", download=False)['entries'][0]["id"]
+    except Exception as e:
+        msg_cb(f"An error occurred searching for the video: [red]{e}[/red]."
+               " [yellow]Check your internet connection.[/yellow]", MessageSeverity.WARNING)
+        return None
 
 
-def download_youtube_video(song_hash: str, video_id: str, directory: str, download_cb, postprocess_cb) -> str:
+def download_youtube_video(track: TrackInfo, video_id: str, directory: str, msg_cb, download_cb, postprocess_cb):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -130,20 +154,19 @@ def download_youtube_video(song_hash: str, video_id: str, directory: str, downlo
 
     options = copy.deepcopy(YDL_OPTIONS)
 
-    options['outtmpl'] = directory + "/" + song_hash + '.%(ext)s'
+    options['outtmpl'] = directory + "/" + track.id + '.%(ext)s'
     options['progress_hooks'] = [
         lambda x: download_cb(float(x['downloaded_bytes']) / float(x['total_bytes']))]
     options['postprocessor_hooks'] = [
         lambda _: postprocess_cb()]
-    options['logger'] = _YoutubeDLNullLogger()
+    options['logger'] = _YoutubeDLNullLogger(msg_cb)
 
     with YoutubeDL(options) as ydl:
         ydl.download(url_list=[url])
-    return video_id
 
 
-def process_video(track: TrackInfo, out_dir, out_name, overwrite):
-    mp3_loc = u'{}.mp3'.format(out_dir + "/" + track.id)
+def process_video(track: TrackInfo, out_dir, out_name, msg_cb, overwrite):
+    mp3_loc = u'{}/{}.mp3'.format(out_dir, track.id)
 
     audiofile = eyed3.load(mp3_loc)
     if audiofile.tag is None:
@@ -169,18 +192,18 @@ def process_video(track: TrackInfo, out_dir, out_name, overwrite):
             out_name = out_name.replace("{" + track._fields[i] + "[0]}", _slugify(track[i][0]))
         out_name = out_name.replace("{" + track._fields[i] + "}", _slugify(track[i]))
 
-    try:
-        path = u'{}/{}' \
-            .format(out_dir, out_name) \
-            .replace("\\", os.sep) \
-            .replace("/", os.sep)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        if overwrite:
-            os.replace(mp3_loc, path)
-        else:
-            os.rename(mp3_loc, path)
-    except:
-        pass  # TODO handle expectations
+    path = u'{}/{}' \
+        .format(out_dir, out_name) \
+        .replace("\\", os.sep) \
+        .replace("/", os.sep)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if overwrite:
+        os.replace(mp3_loc, path)
+    elif os.path.exists(path):
+        msg_cb(f"Stored as {mp3_loc} because {path} already existed. See the '[cyan]--overwrite[/cyan]' "
+               "option to overwrite already existing files.", MessageSeverity.WARNING)
+    else:
+        os.rename(mp3_loc, path)
 
 
 def _slugify(value, allow_unicode=False):
@@ -196,16 +219,20 @@ def _slugify(value, allow_unicode=False):
         value = unicodedata.normalize('NFKC', value)
     else:
         value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
-    return re.sub(r'[^\w\s-]', '', value.lower())
+    return re.sub(r'[^\w\s-]', '', value.lower()).strip()
 
 
 class _YoutubeDLNullLogger(object):
-    # TODO keep warnings and present them later
+
+    def __init__(self, msg_cb):
+        self.__msg_cb = msg_cb
+
     def debug(self, msg):
+        # self.__msg_cb(msg, MessageSeverity.DEBUG)
         pass
 
     def warning(self, msg):
-        pass
+        self.__msg_cb(msg, MessageSeverity.WARNING)
 
     def error(self, msg):
-        pass
+        self.__msg_cb(msg, MessageSeverity.ERROR)
