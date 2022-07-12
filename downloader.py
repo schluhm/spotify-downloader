@@ -40,7 +40,7 @@ def download_tracks(
         tracks: List[TrackInfo],
         out: str,
         name: str,
-        track_status_cb: Callable[[TrackInfo, TrackStatus, {}], None],
+        track_status_cb: Callable[[TrackInfo, TrackStatus, set], None],
         cores=multiprocessing.cpu_count()
 ):
     with Pool(cores) as pool:
@@ -68,7 +68,7 @@ def _track_download_worker(track: TrackInfo, out_dir, out_name, callback_queue: 
     download_track(track, out_dir, out_name, lambda t, status, args: callback_queue.put((t, status, args), block=True))
 
 
-def download_track(track: TrackInfo, out_dir, out_name, track_status_cb: Callable[[TrackInfo, TrackStatus, {}], None]):
+def download_track(track: TrackInfo, out_dir, out_name, track_status_cb: Callable[[TrackInfo, TrackStatus, set], None]):
     track_status_cb(track, TrackStatus.START, {})
     track_status_cb(track, TrackStatus.SEARCHING, {})
     video_id = lookup_song(track.name, track.artists)

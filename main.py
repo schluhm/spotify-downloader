@@ -184,6 +184,10 @@ def download(urls, out, name, cores):
     data = Store()
 
     client = data.get_app_client_data()
+
+    if not client:
+        raise click.UsageError("You have to log in before you can download songs.")
+
     sp = spotipy.Spotify(auth_manager=SpotifyOAuthNoLogin(
         scope=data.SPOTIFY_REQUIRED_SCOPE,
         cache_handler=StoreCacheHandler(data),
