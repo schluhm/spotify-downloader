@@ -48,7 +48,8 @@ def download_tracks(
         out: str,
         name: str,
         track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None],
-        cores=multiprocessing.cpu_count()
+        cores=multiprocessing.cpu_count(),
+        overwrite=False
 ):
     with Pool(cores) as pool:
         manager = multiprocessing.Manager()
@@ -56,7 +57,7 @@ def download_tracks(
 
         work = pool.starmap_async(
             _track_download_worker,
-            zip(tracks, repeat(out), repeat(name), repeat(callback_queue)),
+            zip(tracks, repeat(out), repeat(name), repeat(overwrite), repeat(callback_queue)),
             callback=lambda _: callback_queue.put({
                 'type': MessageType.POOL_DONE
             }, block=True),
@@ -85,12 +86,13 @@ def download_tracks(
         pool.join()
 
 
-def _track_download_worker(track: TrackInfo, out_dir, out_name, callback_queue: Queue):
+def _track_download_worker(track: TrackInfo, out_dir, out_name, overwrite, callback_queue: Queue):
     try:
         download_track(
             track,
             out_dir,
             out_name,
+            overwrite,
             lambda t, status, args: callback_queue.put({
                 'type': MessageType.WORKER_STATUS,
                 'payload': (t, status, args)
@@ -99,7 +101,7 @@ def _track_download_worker(track: TrackInfo, out_dir, out_name, callback_queue: 
         raise Exception(f"Error for track: {track}") from e
 
 
-def download_track(track: TrackInfo, out_dir, out_name,
+def download_track(track: TrackInfo, out_dir, out_name, overwrite,
                    track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None]):
     track_status_cb(track, TrackStatus.START, {})
     track_status_cb(track, TrackStatus.SEARCHING, {})
@@ -109,7 +111,7 @@ def download_track(track: TrackInfo, out_dir, out_name,
         download_youtube_video(track.id, video_id, out_dir,
                                lambda progress: track_status_cb(track, TrackStatus.DOWNLOADING, {'progress': progress}),
                                lambda: track_status_cb(track, TrackStatus.CONVERTING, {}))
-        process_video(track, out_dir, out_name)
+        process_video(track, out_dir, out_name, overwrite)
     track_status_cb(track, TrackStatus.DONE, {})
 
 
@@ -140,23 +142,20 @@ def download_youtube_video(song_hash: str, video_id: str, directory: str, downlo
     return video_id
 
 
-def get_image(track: TrackInfo, out_dir):
-    link = track.images[0]
-    urllib.request.urlretrieve(link, out_dir + "/" + track.id + ".png")
+def process_video(track: TrackInfo, out_dir, out_name, overwrite):
+    mp3_loc = u'{}.mp3'.format(out_dir + "/" + track.id)
 
-
-def process_video(track: TrackInfo, out_dir, out_name):
-    get_image(track, out_dir)
-
-    audiofile = eyed3.load(u'{}.mp3'.format(out_dir + "/" + track.id))
+    audiofile = eyed3.load(mp3_loc)
     if audiofile.tag is None:
         audiofile.initTag()
     audiofile.tag.artist = ",".join(track.artists)
     audiofile.tag.album = track.album
     audiofile.tag.album_artist = ",".join(track.artists)
     audiofile.tag.title = track.name
-    audiofile.tag.images.set(ImageFrame.FRONT_COVER, open(u'{}/{}.png'.format(out_dir, track.id), 'rb').read(),
-                             'image/png')
+
+    response = urllib.request.urlopen(track.images[0])
+    audiofile.tag.images.set(ImageFrame.FRONT_COVER, response.read(), 'image/jpeg')
+
     audiofile.tag.save()
 
     for i in range(len(track._fields)):
@@ -170,11 +169,12 @@ def process_video(track: TrackInfo, out_dir, out_name):
             .replace("\\", os.sep) \
             .replace("/", os.sep)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        os.rename(u'{}/{}.mp3'.format(out_dir, track.id), path)
+        if overwrite:
+            os.replace(mp3_loc, path)
+        else:
+            os.rename(mp3_loc, path)
     except:
         pass  # TODO handle expectations
-    if os.path.isfile(out_dir + "/" + track.id + ".png"):
-        os.remove(out_dir + "/" + track.id + '.png')
 
 
 def _slugify(value, allow_unicode=False):
