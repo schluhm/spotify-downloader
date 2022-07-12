@@ -51,7 +51,8 @@ def main():
     default="http://localhost:8888/callback",
     type=URL,
     help="The URL used as redirect url."
-         "You have to configure your spotify app to accept this url as valid redirect url."
+         "You have to configure your spotify app to accept this url as valid redirect url.",
+    show_default=True
 )
 @click.option(
     "--nb", "--no-browser",
@@ -156,19 +157,22 @@ def login_logout():
     "-o", "--out",
     default=f"{os.getcwd()}/download",
     type=click.Path(file_okay=False, resolve_path=True),
-    help="The directory, where the downloaded tracks will be saved."
+    help="The directory, where the downloaded tracks will be saved.",
+    show_default=True
 )
 @click.option(
     "-n", "--name",
-    default="{artist}/{album}/{name}.mp3",
+    default="{artists[0]}/{album}/{name}.mp3",
     type=str,
-    help="How the files will be named"
+    help="How the files will be named",
+    show_default=True
 )
 @click.option(
     "-c", "--cores",
     default=multiprocessing.cpu_count(),
     type=int,
-    help="The number of parallel downloads"
+    help="The number of parallel downloads",
+    show_default=True
 )
 def download(urls, out, name, cores):
     """
@@ -206,7 +210,6 @@ def download(urls, out, name, cores):
                 album["name"],
                 [x["url"] for x in album["images"]],
                 [x["name"] for x in track["artists"]],
-                track["artists"][0]["name"],
                 track["disc_number"],
                 track["track_number"],
                 album["release_date"]

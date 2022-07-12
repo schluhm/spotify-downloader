@@ -1,3 +1,5 @@
+import collections.abc
+import copy
 import multiprocessing
 import os
 from collections import namedtuple
@@ -13,13 +15,12 @@ import re
 import unicodedata
 import urllib.request
 
-TrackInfo = namedtuple("TrackInfo", "id name album images artists artist disc_number track_number release_date")
+TrackInfo = namedtuple("TrackInfo", "id name album images artists disc_number track_number release_date")
 
 YDL_OPTIONS = {
     'noplaylist': True,
     'quiet': True,
     'format': 'bestaudio/best',
-    'cookiefile': 'cookies.txt',
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'mp3',
@@ -36,6 +37,12 @@ class TrackStatus(Enum):
     DONE = 6
 
 
+class MessageType(Enum):
+    POOL_DONE = 0
+    POOL_ERROR = 1
+    WORKER_STATUS = 2
+
+
 def download_tracks(
         tracks: List[TrackInfo],
         out: str,
@@ -47,28 +54,53 @@ def download_tracks(
         manager = multiprocessing.Manager()
         callback_queue = manager.Queue()
 
-        pool.starmap_async(
+        work = pool.starmap_async(
             _track_download_worker,
             zip(tracks, repeat(out), repeat(name), repeat(callback_queue)),
-            callback=lambda _: callback_queue.put(None, block=True)
+            callback=lambda _: callback_queue.put({
+                'type': MessageType.POOL_DONE
+            }, block=True),
+            error_callback=lambda e: callback_queue.put({
+                'type': MessageType.POOL_ERROR
+            }, block=True)
         )
 
         while True:
-            cb = callback_queue.get(block=True)
-            if cb:
-                track_status_cb(cb[0], cb[1], cb[2])
-            else:
-                break
+            msg = callback_queue.get(block=True)
+            match msg:
+                case {'type': t} if t is MessageType.POOL_DONE:
+                    break
+                case {'type': t} if t is MessageType.POOL_ERROR:
+                    pool.terminate()
+                    break
+                case {'type': t, 'payload': (track, status, args)} if t is MessageType.WORKER_STATUS:
+                    track_status_cb(track, status, args)
+                case _:
+                    pool.terminate()
+                    raise Exception(f"Internal error (unknown message): {msg}")
+
+        work.get()
 
         pool.close()
         pool.join()
 
 
 def _track_download_worker(track: TrackInfo, out_dir, out_name, callback_queue: Queue):
-    download_track(track, out_dir, out_name, lambda t, status, args: callback_queue.put((t, status, args), block=True))
+    try:
+        download_track(
+            track,
+            out_dir,
+            out_name,
+            lambda t, status, args: callback_queue.put({
+                'type': MessageType.WORKER_STATUS,
+                'payload': (t, status, args)
+            }, block=True))
+    except Exception as e:
+        raise Exception(f"Error for track: {track}") from e
 
 
-def download_track(track: TrackInfo, out_dir, out_name, track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None]):
+def download_track(track: TrackInfo, out_dir, out_name,
+                   track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None]):
     track_status_cb(track, TrackStatus.START, {})
     track_status_cb(track, TrackStatus.SEARCHING, {})
     video_id = lookup_song(track.name, track.artists)
@@ -85,11 +117,7 @@ def download_track(track: TrackInfo, out_dir, out_name, track_status_cb: Callabl
 def lookup_song(track_name, artists):
     arg = track_name + " by " + ",".join(artists)
     with YoutubeDL(YDL_OPTIONS) as ydl:
-        try:
-            video = ydl.extract_info(f"ytsearch:{arg}", download=False)['entries'][0]
-        except:
-            return None
-    return video["id"]
+        return ydl.extract_info(f"ytsearch:{arg}", download=False)['entries'][0]["id"]
 
 
 def download_youtube_video(song_hash: str, video_id: str, directory: str, download_cb, postprocess_cb) -> str:
@@ -97,13 +125,17 @@ def download_youtube_video(song_hash: str, video_id: str, directory: str, downlo
         os.makedirs(directory)
 
     url = 'https://youtube.com/watch?v=' + video_id
-    YDL_OPTIONS['outtmpl'] = directory + "/" + song_hash + '.%(ext)s'
-    YDL_OPTIONS['progress_hooks'] = [
+
+    options = copy.deepcopy(YDL_OPTIONS)
+
+    options['outtmpl'] = directory + "/" + song_hash + '.%(ext)s'
+    options['progress_hooks'] = [
         lambda x: download_cb(float(x['downloaded_bytes']) / float(x['total_bytes']))]
-    YDL_OPTIONS['postprocessor_hooks'] = [
+    options['postprocessor_hooks'] = [
         lambda _: postprocess_cb()]
-    YDL_OPTIONS['logger'] = _YoutubeDLNullLogger()
-    with YoutubeDL(YDL_OPTIONS) as ydl:
+    options['logger'] = _YoutubeDLNullLogger()
+
+    with YoutubeDL(options) as ydl:
         ydl.download(url_list=[url])
     return video_id
 
@@ -128,6 +160,8 @@ def process_video(track: TrackInfo, out_dir, out_name):
     audiofile.tag.save()
 
     for i in range(len(track._fields)):
+        if isinstance(track[i], collections.abc.Sequence):
+            out_name = out_name.replace("{" + track._fields[i] + "[0]}", _slugify(track[i][0]))
         out_name = out_name.replace("{" + track._fields[i] + "}", _slugify(track[i]))
 
     try:
@@ -158,8 +192,9 @@ def _slugify(value, allow_unicode=False):
         value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
     return re.sub(r'[^\w\s-]', '', value.lower())
 
+
 class _YoutubeDLNullLogger(object):
-    #TODO keep warnings and present them later
+    # TODO keep warnings and present them later
     def debug(self, msg):
         pass
 

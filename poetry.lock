@@ -395,8 +395,8 @@ websockets = "*"
 
 [metadata]
 lock-version = "1.1"
-python-versions = "^3.9"
-content-hash = "ada68820b411d5989f6debcbd9f0ebe7d21b89f9f46b324038fe78ade853fc00"
+python-versions = "^3.10"
+content-hash = "bf95bb5789892906b7c17a951b248204b80695f21339970b1988f6ee261937e5"
 
 [metadata.files]
 async-timeout = [
