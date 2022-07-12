@@ -152,6 +152,12 @@ def process_video(track: TrackInfo, out_dir, out_name, overwrite):
     audiofile.tag.album = track.album
     audiofile.tag.album_artist = ",".join(track.artists)
     audiofile.tag.title = track.name
+    audiofile.tag.track_num = track.track_number
+    audiofile.tag.disc_num = track.disc_number
+
+    audiofile.tag.date = track.release_date
+    audiofile.tag.recording_date = track.release_date
+    audiofile.tag.release_date = track.release_date
 
     response = urllib.request.urlopen(track.images[0])
     audiofile.tag.images.set(ImageFrame.FRONT_COVER, response.read(), 'image/jpeg')

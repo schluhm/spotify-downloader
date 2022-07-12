@@ -174,7 +174,14 @@ def login_logout():
     help="The number of parallel downloads",
     show_default=True
 )
-def download(urls, out, name, cores):
+@click.option(
+    "-ow", "--overwrite",
+    default=False,
+    is_flag=True,
+    help="Overwrite tracks, that already exist on the hard disk.",
+    show_default=True
+)
+def download(urls, out, name, cores, overwrite):
     """
     Download tracks.
 
@@ -303,7 +310,14 @@ def download(urls, out, name, cores):
                 )
 
         gui.refresh()
-        download_tracks(songs_to_download, out, name, handle_progress, cores=cores)
+        download_tracks(
+            songs_to_download,
+            out,
+            name,
+            handle_progress,
+            cores=cores,
+            overwrite=overwrite
+        )
 
     click.echo("")
     rich.print(f"Downloaded [purple]{len(songs_to_download)}[/purple] tracks [green]successfully[/green]")
