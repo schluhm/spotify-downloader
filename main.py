@@ -2,15 +2,15 @@ import json
 import multiprocessing
 import os
 
-import click
 import rich
-from click_params import URL
+import rich_click as click
 import spotipy
+from click_params import URL
+from downloader import TrackInfo, download_tracks, TrackStatus
+from rich.progress import Progress
 from spotipy import CacheHandler
 from spotipy.oauth2 import SpotifyOAuth
-from downloader import TrackInfo, download_tracks, TrackStatus
 from storage import Store
-from rich.progress import Progress
 
 
 @click.group()

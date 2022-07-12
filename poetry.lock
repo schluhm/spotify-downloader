@@ -284,6 +284,22 @@ pygments = ">=2.6.0,<3.0.0"
 jupyter = ["ipywidgets (>=7.5.1,<8.0.0)"]
 
 [[package]]
+name = "rich-click"
+version = "1.5.1"
+description = "Format click help output nicely with rich"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+click = ">=7"
+rich = ">=10.7.0"
+
+[package.extras]
+dev = ["pre-commit"]
+typer = ["typer (>=0.4)"]
+
+[[package]]
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -380,7 +396,7 @@ websockets = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "137bae261a6da86ed0cafceccd66c07526a68bc849c12301efa34e53b14dc287"
+content-hash = "ada68820b411d5989f6debcbd9f0ebe7d21b89f9f46b324038fe78ade853fc00"
 
 [metadata.files]
 async-timeout = [
@@ -457,6 +473,7 @@ rich = [
     {file = "rich-12.5.1-py3-none-any.whl", hash = "sha256:2eb4e6894cde1e017976d2975ac210ef515d7548bc595ba20e195fb9628acdeb"},
     {file = "rich-12.5.1.tar.gz", hash = "sha256:63a5c5ce3673d3d5fbbf23cd87e11ab84b6b451436f1b7f19ec54b6bc36ed7ca"},
 ]
+rich-click = []
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
     {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},

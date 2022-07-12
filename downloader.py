@@ -40,7 +40,7 @@ def download_tracks(
         tracks: List[TrackInfo],
         out: str,
         name: str,
-        track_status_cb: Callable[[TrackInfo, TrackStatus, set], None],
+        track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None],
         cores=multiprocessing.cpu_count()
 ):
     with Pool(cores) as pool:
@@ -68,14 +68,14 @@ def _track_download_worker(track: TrackInfo, out_dir, out_name, callback_queue: 
     download_track(track, out_dir, out_name, lambda t, status, args: callback_queue.put((t, status, args), block=True))
 
 
-def download_track(track: TrackInfo, out_dir, out_name, track_status_cb: Callable[[TrackInfo, TrackStatus, set], None]):
+def download_track(track: TrackInfo, out_dir, out_name, track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None]):
     track_status_cb(track, TrackStatus.START, {})
     track_status_cb(track, TrackStatus.SEARCHING, {})
     video_id = lookup_song(track.name, track.artists)
     if video_id:
         track_status_cb(track, TrackStatus.DOWNLOADING, {'progress': 0})
         download_youtube_video(track.id, video_id, out_dir,
-                               lambda x: track_status_cb(track, TrackStatus.DOWNLOADING, {'progress': x}),
+                               lambda progress: track_status_cb(track, TrackStatus.DOWNLOADING, {'progress': progress}),
                                lambda: track_status_cb(track, TrackStatus.CONVERTING, {}))
         process_video(track, out_dir, out_name)
     track_status_cb(track, TrackStatus.DONE, {})
@@ -102,12 +102,13 @@ def download_youtube_video(song_hash: str, video_id: str, directory: str, downlo
         lambda x: download_cb(float(x['downloaded_bytes']) / float(x['total_bytes']))]
     YDL_OPTIONS['postprocessor_hooks'] = [
         lambda _: postprocess_cb()]
+    YDL_OPTIONS['logger'] = _YoutubeDLNullLogger()
     with YoutubeDL(YDL_OPTIONS) as ydl:
         ydl.download(url_list=[url])
     return video_id
 
 
-def get_image(track, out_dir):
+def get_image(track: TrackInfo, out_dir):
     link = track.images[0]
     urllib.request.urlretrieve(link, out_dir + "/" + track.id + ".png")
 
@@ -156,3 +157,14 @@ def _slugify(value, allow_unicode=False):
     else:
         value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
     return re.sub(r'[^\w\s-]', '', value.lower())
+
+class _YoutubeDLNullLogger(object):
+    #TODO keep warnings and present them later
+    def debug(self, msg):
+        pass
+
+    def warning(self, msg):
+        pass
+
+    def error(self, msg):
+        pass
