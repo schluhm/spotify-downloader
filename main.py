@@ -224,7 +224,7 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, ag
     Be aware, that the currently logged-in user needs access to the resources specified
     by the provided urls (i.e. he needs access to private playlists).
 
-    An url can be an album url, a playlist url or a track url.
+    An url can be an album url, a playlist url, a track url or an artist url.
 
     """
     cons = Console()
