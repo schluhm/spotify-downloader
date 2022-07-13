@@ -15,7 +15,14 @@ import re
 import unicodedata
 import urllib.request
 
-TrackInfo = namedtuple("TrackInfo", "id name album images artists disc_number track_number release_date")
+
+class TrackInfo(namedtuple("TrackInfo", "id name album images artists disc_number track_number release_date")):
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __hash__(self):
+        return self.id.__hash__()
+
 
 YDL_OPTIONS = {
     'noplaylist': True,
@@ -150,15 +157,19 @@ def download_youtube_video(track: TrackInfo, video_id: str, directory: str, msg_
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+    def progress_hooks(data):
+        try:
+            download_cb(float(data['downloaded_bytes']) / float(data['total_bytes']))
+        except KeyError:
+            pass
+
     url = 'https://youtube.com/watch?v=' + video_id
 
     options = copy.deepcopy(YDL_OPTIONS)
 
     options['outtmpl'] = directory + "/" + track.id + '.%(ext)s'
-    options['progress_hooks'] = [
-        lambda x: download_cb(float(x['downloaded_bytes']) / float(x['total_bytes']))]
-    options['postprocessor_hooks'] = [
-        lambda _: postprocess_cb()]
+    options['progress_hooks'] = [progress_hooks]
+    options['postprocessor_hooks'] = [lambda _: postprocess_cb()]
     options['logger'] = _YoutubeDLNullLogger(msg_cb)
 
     with YoutubeDL(options) as ydl:

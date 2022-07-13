@@ -7,6 +7,7 @@ import rich_click as click
 import spotipy
 from click_params import URL
 from rich.console import Console
+from rich.live import Live
 from rich.table import Table
 
 from downloader import TrackInfo, download_tracks, TrackStatus, MessageSeverity
@@ -181,7 +182,7 @@ def login_logout():
     show_default=True
 )
 @click.option(
-    "-ow", "--overwrite",
+    "-f", "--overwrite",
     default=False,
     is_flag=True,
     help="Overwrite tracks, that already exist on the hard disk.",
@@ -197,6 +198,7 @@ def download(urls, out, name, cores, overwrite):
     An url can be an album url, a playlist url or a track url.
 
     """
+    cons = Console()
 
     data = Store()
 
@@ -213,7 +215,7 @@ def download(urls, out, name, cores, overwrite):
         redirect_uri="-/-"
     ))
 
-    songs_to_download = []
+    songs_to_download = set()
 
     for url in urls:
         def create_song(album, track):
@@ -233,7 +235,7 @@ def download(urls, out, name, cores, overwrite):
         url_name = "Unknown"
 
         if "playlist" in url:
-            click.echo(click.style(f"Playlist: {url}", bold=True))
+            cons.print(f"[bold]Playlist: {url}[/bold]")
             for item in util_read_pagination(sp, sp.playlist_items(
                     playlist_id=url,
                     fields=
@@ -252,36 +254,36 @@ def download(urls, out, name, cores, overwrite):
                 tracks.append(create_song(album, track))
             url_name = sp.playlist(playlist_id=url, fields="name")["name"]
         elif "album" in url:
-            click.echo(click.style(f"Album: {url}", bold=True))
+            cons.print(f"[bold]Album: {url}[/bold]")
             album = sp.album(url)
             for track in util_read_pagination(sp, album["tracks"]):
                 tracks.append(create_song(album, track))
             url_name = album["name"]
         elif "track" in url:
-            click.echo(click.style(f"Track: {url}", bold=True))
+            cons.print(f"[bold]Track: {url}[/bold]")
             track = sp.track(url)
             tracks.append(create_song(track["album"], track))
             url_name = track["name"]
         else:
             raise click.UsageError(f"Unrecognized URL: {url}")
 
-        rich.print(
-            f"  ╚> [purple]{len(tracks)}[/purple] Track{'s' if len(tracks) != 1 else ''} in [cyan]{url_name}[/cyan]")
+        cons.print(f"  ╚> [purple]{len(tracks)}[/purple] Track{'s' if len(tracks) != 1 else ''} in [cyan]{url_name}[/cyan]")
 
-        songs_to_download.extend(tracks)
+        for track in tracks:
+            songs_to_download.add(track)
 
-    click.echo("")
+    cons.print("")
 
     track_messages = {}
 
-    with Progress() as gui:
+    with Progress(console=cons) as gui:
         overall = gui.add_task(
             description=f"Tracks [purple]0[/purple] / [purple]{len(songs_to_download)}[/purple]",
             total=len(songs_to_download)
         )
         progress = {}
 
-        def handle_progress(current_track, status, args):
+        def handle_progress(current_track: TrackInfo, status: TrackStatus, args: dict):
             display_name = current_track.name
             if len(display_name) > 25:
                 display_name = display_name[:25 - 2] + ".."
@@ -309,20 +311,21 @@ def download(urls, out, name, cores, overwrite):
                     total=None
                 )
             elif status is TrackStatus.DONE:
-                gui.update(progress[current_track.id], completed=True, visible=False, refresh=True)
-                progress.pop(current_track.id)
                 gui.advance(overall, 1)
                 gui.update(
                     overall,
                     description=f"Tracks [purple]{gui.tasks[overall].completed}[/purple] / [purple]{len(songs_to_download)}[/purple] "
                 )
+                gui.remove_task(progress[current_track.id])
+                gui.refresh()
+                progress.pop(current_track.id)
             elif status is TrackStatus.MESSAGE:
                 args["track"] = current_track
                 track_messages.setdefault(current_track.id, []).append(args)
 
         gui.refresh()
         download_tracks(
-            songs_to_download,
+            list(songs_to_download),
             out,
             name,
             handle_progress,
@@ -330,8 +333,8 @@ def download(urls, out, name, cores, overwrite):
             overwrite=overwrite
         )
 
-    click.echo("")
-    rich.print(f"Downloaded [purple]{len(songs_to_download)}[/purple] tracks [green]successfully[/green]")
+    cons.print("")
+    cons.print(f"Downloaded [purple]{len(songs_to_download)}[/purple] tracks [green]successfully[/green]")
 
     if len(track_messages) != 0:
         table = Table(title="Warning and Error Log")
@@ -349,8 +352,7 @@ def download(urls, out, name, cores, overwrite):
 
                 table.add_row(entry["track"].name, serv, entry["msg"])
 
-        console = Console()
-        console.print(table)
+        cons.print(table)
 
 
 def util_read_pagination(sp, results):
