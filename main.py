@@ -2,12 +2,10 @@ import json
 import multiprocessing
 import os
 
-import rich
 import rich_click as click
 import spotipy
 from click_params import URL
 from rich.console import Console
-from rich.live import Live
 from rich.table import Table
 
 from downloader import TrackInfo, download_tracks, TrackStatus, MessageSeverity
@@ -59,11 +57,12 @@ def main():
     show_default=True
 )
 @click.option(
-    "--nb", "--no-browser",
+    "--nb", "--browser/--no-browser",
     is_flag=True,
     show_default=True,
     default=False,
-    help="Dont open a browser to login. This is useful if you have no graphical user-interface available to you."
+    help="Open a browser to login."
+         " Opening no borowser is useful if you have no graphical user-interface available to you."
 )
 def login(client_id, client_secret, redirect_url, nb):
     """
@@ -182,13 +181,22 @@ def login_logout():
     show_default=True
 )
 @click.option(
-    "-f", "--overwrite",
+    "-f", "--overwrite/--no-overwrite",
     default=False,
     is_flag=True,
     help="Overwrite tracks, that already exist on the hard disk.",
     show_default=True
 )
-def download(urls, out, name, cores, overwrite):
+@click.option(
+    "-a", "--artist-album",
+    default=["single", "album"],
+    multiple=True,
+    help="When specifying an artist to download from, this specifies which album types will be downloaded. "
+         "Use this option multiple times, to download multiple album types.",
+    type=click.Choice(['single', 'album', 'appears_on'], case_sensitive=False),
+    show_default=True
+)
+def download(urls, out, name, cores, overwrite, artist_album):
     """
     Download tracks.
 
@@ -231,6 +239,11 @@ def download(urls, out, name, cores, overwrite):
             )
             return track_info
 
+        def add_album(album_id, out_container: list):
+            album = sp.album(album_id)
+            out_container.extend([create_song(album, t) for t in util_read_pagination(sp, album["tracks"])])
+            return album["name"]
+
         tracks = []
         url_name = "Unknown"
 
@@ -255,19 +268,30 @@ def download(urls, out, name, cores, overwrite):
             url_name = sp.playlist(playlist_id=url, fields="name")["name"]
         elif "album" in url:
             cons.print(f"[bold]Album: {url}[/bold]")
-            album = sp.album(url)
-            for track in util_read_pagination(sp, album["tracks"]):
-                tracks.append(create_song(album, track))
-            url_name = album["name"]
+            url_name = add_album(url, tracks)
         elif "track" in url:
             cons.print(f"[bold]Track: {url}[/bold]")
             track = sp.track(url)
             tracks.append(create_song(track["album"], track))
             url_name = track["name"]
+        elif "artist" in url:
+            click.echo(click.style(f"Artist: {url}", bold=True))
+            for album_info in util_read_pagination(sp, sp.artist_albums(url)):
+                if album_info["album_group"] not in artist_album:
+                    continue
+
+                album_tracks = []
+                album_name = add_album(album_info["uri"], album_tracks)
+                cons.print(f"  ║ ╚> [purple]{len(album_tracks)}[/purple] "
+                           f"Track{'s' if len(tracks) != 1 else ''} in [cyan]{album_name}[/cyan]")
+                tracks.extend(album_tracks)
+            url_name = sp.artist(artist_id=url)["name"]
+
         else:
             raise click.UsageError(f"Unrecognized URL: {url}")
 
-        cons.print(f"  ╚> [purple]{len(tracks)}[/purple] Track{'s' if len(tracks) != 1 else ''} in [cyan]{url_name}[/cyan]")
+        cons.print(
+            f"  ╚> [purple]{len(tracks)}[/purple] Track{'s' if len(tracks) != 1 else ''} in [cyan]{url_name}[/cyan]")
 
         for track in tracks:
             songs_to_download.add(track)
@@ -357,9 +381,12 @@ def download(urls, out, name, cores, overwrite):
 
 def util_read_pagination(sp, results):
     items = results["items"]
-    while results['next']:
-        results = sp.next(results)
-        items.extend(results['items'])
+    with Progress(transient=True) as gui:
+        gui.add_task(description="Fetch data...", total=None)
+        while results['next']:
+            results = sp.next(results)
+            items.extend(results['items'])
+            gui.refresh()
     return items
 
 
