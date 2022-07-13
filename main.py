@@ -8,7 +8,8 @@ from click_params import URL
 from rich.console import Console
 from rich.table import Table
 
-from downloader import TrackInfo, download_tracks, TrackStatus, MessageSeverity
+import downloader
+from downloader import TrackInfo, TrackStatus, MessageSeverity
 from rich.progress import Progress
 from spotipy import CacheHandler
 from spotipy.oauth2 import SpotifyOAuth
@@ -157,6 +158,11 @@ def login_logout():
     type=URL,
 )
 @click.option(
+    "-u", "--url_file",
+    type=click.Path(dir_okay=False, exists=True, resolve_path=True),
+    help="A file containing urls per line. They will be added to the [URLS] list before processing.",
+)
+@click.option(
     "-o", "--out",
     default=f"{os.getcwd()}/download",
     type=click.Path(file_okay=False, resolve_path=True),
@@ -196,7 +202,14 @@ def login_logout():
     type=click.Choice(['single', 'album', 'appears_on'], case_sensitive=False),
     show_default=True
 )
-def download(urls, out, name, cores, overwrite, artist_album):
+@click.option(
+    "-d", "--dry-run/--no-dry-run",
+    default=False,
+    is_flag=True,
+    help="Dont try to download any track.",
+    show_default=True
+)
+def download(urls: list, url_file, out, name, cores, overwrite, artist_album, dry_run):
     """
     Download tracks.
 
@@ -223,6 +236,61 @@ def download(urls, out, name, cores, overwrite, artist_album):
         redirect_uri="-/-"
     ))
 
+    if not urls:
+        urls = []
+
+    if url_file:
+        cons.print(f"Add addition urls from '{url_file}'")
+        with open(url_file, 'r') as f:
+            lines = f.read().splitlines()
+            urls.extend(lines)
+            cons.print(f"Added  {len(lines)} additional urls.")
+
+    if len(urls) == 0:
+        raise click.UsageError("No tracks provided.")
+
+    songs_to_download = extract_tracks(cons, sp, urls, artist_album)
+
+    if dry_run:
+        track_messages = {'_': [{
+            'serv': MessageSeverity.WARNING,
+            'source': '[purple]Dry Run[/purple]',
+            'msg': 'This was a dry run. No tracks where actually downloaded.'
+        }]}
+    else:
+        cons.print("")
+        track_messages = download_tracks(cons, songs_to_download, out, name, cores, overwrite)
+
+    cons.print("")
+    cons.print(
+        f"{'[strike]' if dry_run else ''}Downloaded [purple]{len(songs_to_download)}[/purple] tracks [green]successfully[/green]{'[/strike]' if dry_run else ''}")
+
+    if len(track_messages) != 0:
+        cons.print("")
+        table = Table()
+        table.add_column("Source", justify="left", no_wrap=True)
+        table.add_column("Severity", justify="center", no_wrap=True)
+        table.add_column("Message", justify="left", overflow="fold")
+
+        for key, value in track_messages.items():
+            for entry in value:
+                serv = entry["serv"].name
+                if entry["serv"] == MessageSeverity.ERROR:
+                    serv = f"[red]{serv}[/red]"
+                elif entry["serv"] == MessageSeverity.WARNING:
+                    serv = f"[yellow]{serv}[/yellow]"
+
+                if "track" in entry:
+                    table.add_row(entry["track"].name, serv, entry["msg"])
+                elif "source" in entry:
+                    table.add_row(entry["source"], serv, entry["msg"])
+                else:
+                    table.add_row("Unknown Source", f"[red]{MessageSeverity.ERROR.name}[/red]", json.dumps(entry))
+
+        cons.print(table)
+
+
+def extract_tracks(cons, sp, urls, album_group):
     songs_to_download = set()
 
     for url in urls:
@@ -245,7 +313,6 @@ def download(urls, out, name, cores, overwrite, artist_album):
             return album["name"]
 
         tracks = []
-        url_name = "Unknown"
 
         if "playlist" in url:
             cons.print(f"[bold]Playlist: {url}[/bold]")
@@ -277,7 +344,7 @@ def download(urls, out, name, cores, overwrite, artist_album):
         elif "artist" in url:
             click.echo(click.style(f"Artist: {url}", bold=True))
             for album_info in util_read_pagination(sp, sp.artist_albums(url)):
-                if album_info["album_group"] not in artist_album:
+                if album_info["album_group"] not in album_group:
                     continue
 
                 album_tracks = []
@@ -296,8 +363,10 @@ def download(urls, out, name, cores, overwrite, artist_album):
         for track in tracks:
             songs_to_download.add(track)
 
-    cons.print("")
+    return songs_to_download
 
+
+def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite):
     track_messages = {}
 
     with Progress(console=cons) as gui:
@@ -348,35 +417,16 @@ def download(urls, out, name, cores, overwrite, artist_album):
                 track_messages.setdefault(current_track.id, []).append(args)
 
         gui.refresh()
-        download_tracks(
+        downloader.download_tracks(
             list(songs_to_download),
-            out,
-            name,
+            out_dir,
+            out_name,
             handle_progress,
             cores=cores,
             overwrite=overwrite
         )
 
-    cons.print("")
-    cons.print(f"Downloaded [purple]{len(songs_to_download)}[/purple] tracks [green]successfully[/green]")
-
-    if len(track_messages) != 0:
-        table = Table(title="Warning and Error Log")
-        table.add_column("Track", justify="left", no_wrap=True)
-        table.add_column("Severity", justify="center", no_wrap=True)
-        table.add_column("message", justify="left", overflow="fold")
-
-        for key, value in track_messages.items():
-            for entry in value:
-                serv = entry["serv"].name
-                if entry["serv"] == MessageSeverity.ERROR:
-                    serv = f"[red]{serv}[/red]"
-                elif entry["serv"] == MessageSeverity.WARNING:
-                    serv = f"[yellow]{serv}[/yellow]"
-
-                table.add_row(entry["track"].name, serv, entry["msg"])
-
-        cons.print(table)
+        return track_messages
 
 
 def util_read_pagination(sp, results):
