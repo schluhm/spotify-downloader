@@ -149,7 +149,7 @@ def lookup_song(track: TrackInfo, msg_cb):
             return ydl.extract_info(f"ytsearch:{arg}", download=False)['entries'][0]["id"]
     except Exception as e:
         msg_cb(f"An error occurred searching for the video: [red]{e}[/red]."
-               " [yellow]Check your internet connection.[/yellow]", MessageSeverity.WARNING)
+               " [yellow]Check your internet connection.[/yellow]", MessageSeverity.ERROR)
         return None
 
 
