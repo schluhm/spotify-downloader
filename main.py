@@ -206,7 +206,8 @@ def login_logout():
     "--aggregate/--no-aggregate",
     default=False,
     is_flag=True,
-    help="Dont download the individually provided tracks, but download the complete albums containing the tracks.",
+    help="Dont download the individually provided tracks (on a playlist), "
+         "but download the complete albums containing the tracks.",
     show_default=True
 )
 @click.option(
@@ -247,11 +248,11 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, ag
         urls = []
 
     if url_file:
-        cons.print(f"Add addition urls from '{url_file}'")
+        cons.print(f"[bold]Add addition urls from '{url_file}'[/bold]")
         with open(url_file, 'r') as f:
             lines = f.read().splitlines()
             urls.extend(lines)
-            cons.print(f"Added {len(lines)} additional url{'' if len(lines) == 1 else 's'}.")
+            cons.print(f"Added {len(lines)} additional url{'' if len(lines) == 1 else 's'}.\n")
 
     if len(urls) == 0:
         raise click.UsageError("No tracks provided.")
@@ -308,7 +309,7 @@ def extract_tracks(cons, sp, urls, album_group, aggregate):
 
     if aggregate:
         cons.print("[bold]Convert playlists and tracks to albums[/bold]")
-        new_urls = []
+        new_urls = set()
         albums = set()
         for url in urls:
             if is_playlist(url):
@@ -327,9 +328,9 @@ def extract_tracks(cons, sp, urls, album_group, aggregate):
                 cons.print(f"  ╚> [bold]Album[/bold] {album['external_urls']['spotify']}")
                 albums.add(album['external_urls']['spotify'])
             else:
-                new_urls.append(url)
+                new_urls.add(url)
         urls = new_urls
-        urls.extend(albums)
+        urls.update(albums)
         cons.print("")
 
     for url in urls:
