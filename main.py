@@ -167,7 +167,10 @@ def login_logout():
     "-n", "--name",
     default="{artists[0]}/{album}/{name}.mp3",
     type=str,
-    help="How the files will be named",
+    help="How the files will be named.\n"
+         "The following placeholders will be interpolated with track information: " +
+         ', '.join(map(lambda n: '{' + n + '}', TrackInfo._fields)) +
+         ". You can also access the first element of some fields by using i.e. {artists[0]}",
     show_default=True
 )
 @click.option(
@@ -332,7 +335,7 @@ def download(urls, out, name, cores, overwrite):
 
     if len(track_messages) != 0:
         table = Table(title="Warning and Error Log")
-        table.add_column("Track", justify="left",  no_wrap=True)
+        table.add_column("Track", justify="left", no_wrap=True)
         table.add_column("Severity", justify="center", no_wrap=True)
         table.add_column("message", justify="left", overflow="fold")
 
