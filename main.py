@@ -203,13 +203,20 @@ def login_logout():
     show_default=True
 )
 @click.option(
+    "--aggregate/--no-aggregate",
+    default=False,
+    is_flag=True,
+    help="Dont download the individually provided tracks, but download the complete albums containing the tracks.",
+    show_default=True
+)
+@click.option(
     "-d", "--dry-run/--no-dry-run",
     default=False,
     is_flag=True,
     help="Dont try to download any track.",
     show_default=True
 )
-def download(urls: list, url_file, out, name, cores, overwrite, artist_album, dry_run):
+def download(urls: list, url_file, out, name, cores, overwrite, artist_album, aggregate, dry_run):
     """
     Download tracks.
 
@@ -244,12 +251,12 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, dr
         with open(url_file, 'r') as f:
             lines = f.read().splitlines()
             urls.extend(lines)
-            cons.print(f"Added  {len(lines)} additional urls.")
+            cons.print(f"Added {len(lines)} additional url{'' if len(lines) == 1 else 's'}.")
 
     if len(urls) == 0:
         raise click.UsageError("No tracks provided.")
 
-    songs_to_download = extract_tracks(cons, sp, urls, artist_album)
+    songs_to_download = extract_tracks(cons, sp, urls, artist_album, aggregate)
 
     if dry_run:
         track_messages = {'_': [{
@@ -290,8 +297,40 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, dr
         cons.print(table)
 
 
-def extract_tracks(cons, sp, urls, album_group):
+def extract_tracks(cons, sp, urls, album_group, aggregate):
     songs_to_download = set()
+
+    def is_playlist(url):
+        return "playlist" in url
+
+    def is_track(url):
+        return "track" in url
+
+    if aggregate:
+        cons.print("[bold]Convert playlists and tracks to albums[/bold]")
+        new_urls = []
+        albums = set()
+        for url in urls:
+            if is_playlist(url):
+                playlist_albums = set()
+                cons.print(f"Convert [bold]Playlist[/bold] {url}")
+                for track in util_read_pagination(sp, sp.playlist_tracks(playlist_id=url)):
+                    album = track["track"]["album"]
+                    href = album['external_urls']['spotify']
+                    if href not in playlist_albums:
+                        playlist_albums.add(href)
+                        albums.add(href)
+                        cons.print(f"  ╚> [bold]Album[/bold] {album['external_urls']['spotify']}")
+            elif is_track(url):
+                cons.print(f"Convert [bold]Track[/bold] {url}")
+                album = sp.track(track_id=url)["album"]
+                cons.print(f"  ╚> [bold]Album[/bold] {album['external_urls']['spotify']}")
+                albums.add(album['external_urls']['spotify'])
+            else:
+                new_urls.append(url)
+        urls = new_urls
+        urls.extend(albums)
+        cons.print("")
 
     for url in urls:
         def create_song(album, track):
@@ -314,7 +353,7 @@ def extract_tracks(cons, sp, urls, album_group):
 
         tracks = []
 
-        if "playlist" in url:
+        if is_playlist(url):
             cons.print(f"[bold]Playlist: {url}[/bold]")
             for item in util_read_pagination(sp, sp.playlist_items(
                     playlist_id=url,
@@ -336,7 +375,7 @@ def extract_tracks(cons, sp, urls, album_group):
         elif "album" in url:
             cons.print(f"[bold]Album: {url}[/bold]")
             url_name = add_album(url, tracks)
-        elif "track" in url:
+        elif is_track(url):
             cons.print(f"[bold]Track: {url}[/bold]")
             track = sp.track(url)
             tracks.append(create_song(track["album"], track))
