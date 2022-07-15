@@ -129,9 +129,24 @@ class Store:
 
         sql = f'select {", ".join(columns)} from tracks'
 
-        params = []
+        sql, params = self._tracks_sql_add_where(sql, where, [])
 
-        if where and len(order_by) != where:
+        if order_by and len(order_by) != 0:
+            self._check_for_valid_tracks_column(order_by)
+            sql += f' ORDER BY {", ".join(order_by)}'
+
+        return self.__connection.execute(sql, params).fetchall()
+
+    def clear_track_cache(self, where):
+        sql = 'DELETE FROM tracks'
+
+        sql, params = self._tracks_sql_add_where(sql, where, [])
+
+        self.__connection.execute(sql, params)
+        self.__connection.commit()
+
+    def _tracks_sql_add_where(self, sql, where, parameter):
+        if where and len(where) != 0:
             self._check_for_valid_tracks_column([x[0] for x in where])
             for w in where:
                 if w[1] not in [x.value for x in Comparator]:
@@ -146,17 +161,9 @@ class Store:
             )
 
             for v in grouped.values():
-                params.extend([c[2] for c in v])
+                parameter.extend([c[2] for c in v])
 
-        if order_by and len(order_by) != 0:
-            self._check_for_valid_tracks_column(order_by)
-            sql += f' ORDER BY {", ".join(order_by)}'
-
-        return self.__connection.execute(sql, params).fetchall()
-
-    def clear_track_cache(self):
-        self.__connection.execute('DELETE FROM tracks')
-        self.__connection.commit()
+        return sql, parameter
 
     def _check_for_valid_tracks_column(self, column):
         fields = self.get_track_cache_fields()

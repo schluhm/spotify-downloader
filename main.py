@@ -21,6 +21,24 @@ from track import TrackInfo
 
 _STORE = Store()
 
+WHERE_OPTION = click.option(
+    "-w", "--where",
+    multiple=True,
+    nargs=3,
+    help="Filter for specific fields. "
+         "Specify the option for teh same field multiple times, to build a disjunction. "
+         "Specify different fields to build a conjugation. "
+         "This can be passed like: -w artist LIKE 'The %' -w track_number '<' 4 -w [...] "
+         f"i.e. after the flag you first pass the field name "
+         f"then you pass the comparator and then the value to compare against.",
+    type=click.Tuple([
+        click.Choice(_STORE.get_track_cache_fields(), case_sensitive=False),
+        click.Choice([x.value for x in Comparator], case_sensitive=False),
+        str
+    ]),
+    show_default=True
+)
+
 
 @click.group()
 def main():
@@ -174,23 +192,7 @@ def login_logout():
     type=click.Choice(_STORE.get_track_cache_fields(), case_sensitive=False),
     show_default=True
 )
-@click.option(
-    "-w", "--where",
-    multiple=True,
-    nargs=3,
-    help="Filter for specific fields. "
-         "Specify the option for teh same field multiple times, to build a disjunction. "
-         "Specify different fields to build a conjugation. "
-         "This can be passed like: -w artist LIKE 'The %' -w track_number '<' 4 -w [...] "
-         f"i.e. after the flag you first pass the field name "
-         f"then you pass the comparator and then the value to compare against.",
-    type=click.Tuple([
-        click.Choice(_STORE.get_track_cache_fields(), case_sensitive=False),
-        click.Choice([x.value for x in Comparator], case_sensitive=False),
-        str
-    ]),
-    show_default=True
-)
+@WHERE_OPTION
 def cache_read(order_by, column, where):
     """
     Display which tracks are stored in the internal track cache.
@@ -224,11 +226,17 @@ def cache_read(order_by, column, where):
 
 
 @main.command()
-def cache_clear():
+@WHERE_OPTION
+def cache_clear(where):
     """
-    Clear all tracks from the internal track cache.
+    Clear tracks from the internal cache.
     """
-    _STORE.clear_track_cache()
+    old_count = _STORE.read_track_cache_size()
+    _STORE.clear_track_cache(where)
+    count = _STORE.read_track_cache_size()
+    cons = Console()
+    cons.print(f"Removed [purple]{old_count - count}[/purple] cached tracks.")
+    cons.print(f"[purple]{count}[/purple] tracks still cached.")
 
 
 @main.command()
