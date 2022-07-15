@@ -208,7 +208,7 @@ def login_logout():
 @main.command()
 @click.option(
     "-o", "--order-by",
-    default=["artist", "release_date", "album", "disc_number", "track_number", "track_id"],
+    default=["album_artist", "release_date", "album", "disc_number", "track_number", "track_id"],
     multiple=True,
     help="Specify the order of shown cache entries. "
          "Specify the option multiple times, to order lexicographically by multiple elements.",

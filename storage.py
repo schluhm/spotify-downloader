@@ -110,8 +110,8 @@ class Store:
                             INSERT INTO tracks
                                 (track_id, album_artist, name, album, artist, disc_number, track_number, release_date)
                                 VALUES(?,?,?,?,?,?,?,?)
-                            ''', [track.id, track.album_artists[0], track.name, track.album, track.artists[0],
-                                  track.disc_number, track.track_number, track.release_date])
+                            ''', [track.id, ";".join(track.album_artists), track.name, track.album,
+                                  ";".join(track.artists), track.disc_number, track.track_number, track.release_date])
             self.__connection.commit()
             return True
         except sqlite3.IntegrityError as e:
