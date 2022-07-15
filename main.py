@@ -39,6 +39,32 @@ WHERE_OPTION = click.option(
     show_default=True
 )
 
+URL_FILE_OPTION = click.option(
+    "-u", "--url-file",
+    type=click.Path(dir_okay=False, exists=True, resolve_path=True),
+    help="Files containing urls per line. They will be added to the [URLS] list before processing.",
+    multiple=True,
+)
+
+AGGREGATE_OPTION = click.option(
+    "--aggregate/--no-aggregate",
+    default=False,
+    is_flag=True,
+    help="Dont download the individually provided tracks (on a playlist), "
+         "but download the complete albums containing the tracks.",
+    show_default=True
+)
+
+ARTIST_ALBUM_OPTION = click.option(
+    "-a", "--artist-album",
+    default=["single", "album"],
+    multiple=True,
+    help="When specifying an artist to download from, this specifies which album types will be downloaded. "
+         "Use this option multiple times, to download multiple album types.",
+    type=click.Choice(['single', 'album', 'appears_on'], case_sensitive=False),
+    show_default=True
+)
+
 
 @click.group()
 def main():
@@ -245,11 +271,45 @@ def cache_clear(where):
     nargs=-1,
     type=URL,
 )
-@click.option(
-    "-u", "--url-file",
-    type=click.Path(dir_okay=False, exists=True, resolve_path=True),
-    help="A file containing urls per line. They will be added to the [URLS] list before processing.",
+@URL_FILE_OPTION
+@ARTIST_ALBUM_OPTION
+@AGGREGATE_OPTION
+def cache_load(urls: list, url_file, artist_album, aggregate):
+    """
+    Load some songs into the internal cache without downloading them.
+    """
+
+    cons = Console()
+
+    sp = _load_spotify_api()
+
+    urls = _add_urls_from_file(cons, urls, url_file)
+    songs_to_download = _extract_tracks(cons, sp, urls, artist_album, aggregate)
+
+    inserted = 0
+    already_inserted = 0
+
+    for track in songs_to_download:
+        if _STORE.insert_track_cache_if_new(track):
+            inserted += 1
+        else:
+            already_inserted += 1
+
+    table = Table("[bold]Insertion Results[/bold]", box=None)
+    table.add_row("[green]INSERTED[/green]", str(inserted))
+    table.add_row("[purple]CACHED[/purple]", str(already_inserted))
+
+    cons.print("")
+    cons.print(table)
+
+
+@main.command()
+@click.argument(
+    "urls",
+    nargs=-1,
+    type=URL,
 )
+@URL_FILE_OPTION
 @click.option(
     "-o", "--out",
     default=f"{os.getcwd()}/download",
@@ -282,23 +342,8 @@ def cache_clear(where):
          "Be aware, that this will not ignore the cache.",
     show_default=True
 )
-@click.option(
-    "-a", "--artist-album",
-    default=["single", "album"],
-    multiple=True,
-    help="When specifying an artist to download from, this specifies which album types will be downloaded. "
-         "Use this option multiple times, to download multiple album types.",
-    type=click.Choice(['single', 'album', 'appears_on'], case_sensitive=False),
-    show_default=True
-)
-@click.option(
-    "--aggregate/--no-aggregate",
-    default=False,
-    is_flag=True,
-    help="Dont download the individually provided tracks (on a playlist), "
-         "but download the complete albums containing the tracks.",
-    show_default=True
-)
+@ARTIST_ALBUM_OPTION
+@AGGREGATE_OPTION
 @click.option(
     "-d", "--dry-run/--no-dry-run",
     default=False,
@@ -335,30 +380,10 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, ag
     """
     cons = Console()
 
-    client = _STORE.get_app_client_data()
+    sp = _load_spotify_api()
 
-    if not client:
-        raise click.UsageError("You have to log in before you can download songs.")
-
-    sp = spotipy.Spotify(auth_manager=SpotifyOAuthNoLogin(
-        scope=_STORE.SPOTIFY_REQUIRED_SCOPE,
-        cache_handler=StoreCacheHandler(_STORE),
-        client_id=client.id,
-        client_secret=client.secret,
-        redirect_uri="-/-"
-    ))
-
-    if not urls:
-        urls = []
-
-    if url_file:
-        cons.print(f"[bold]Add addition urls from '{url_file}'[/bold]")
-        with open(url_file, 'r') as f:
-            lines = f.read().splitlines()
-            urls.extend(lines)
-            cons.print(f"Added {len(lines)} additional url{'' if len(lines) == 1 else 's'}.\n")
-
-    songs_to_download = extract_tracks(cons, sp, urls, artist_album, aggregate)
+    urls = _add_urls_from_file(cons, urls, url_file)
+    songs_to_download = _extract_tracks(cons, sp, urls, artist_album, aggregate)
 
     if len(songs_to_download) == 0:
         raise click.UsageError("No tracks provided.")
@@ -411,7 +436,32 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, ag
     cons.print(table)
 
 
-def extract_tracks(cons, sp, urls, album_group, aggregate):
+def _load_spotify_api():
+    client = _STORE.get_app_client_data()
+
+    if not client:
+        raise click.UsageError("You have to log in before you can download songs.")
+
+    return spotipy.Spotify(auth_manager=SpotifyOAuthNoLogin(
+        scope=_STORE.SPOTIFY_REQUIRED_SCOPE,
+        cache_handler=StoreCacheHandler(_STORE),
+        client_id=client.id,
+        client_secret=client.secret,
+        redirect_uri="-/-"
+    ))
+
+
+def _add_urls_from_file(cons, urls, url_files):
+    for uf in url_files:
+        cons.print(f"[bold]Add addition urls from '{uf}'[/bold]")
+        with open(uf, 'r') as f:
+            lines = f.read().splitlines()
+            urls.extend(lines)
+            cons.print(f"Added {len(lines)} additional url{'' if len(lines) == 1 else 's'}.\n")
+    return urls
+
+
+def _extract_tracks(cons, sp, urls, album_group, aggregate):
     songs_to_download = set()
 
     # TODO aggregate came later and now this is a little bit messy.
