@@ -35,7 +35,8 @@ class TrackStatus(Enum):
     START = 0
     SEARCHING = 1
     DOWNLOADING = 2
-    CONVERTING = 4
+    CONVERTING = 3
+    META_DATA = 4
     DONE = 5
     MESSAGE = 6
 
@@ -144,6 +145,7 @@ def download_track(track: TrackInfo, out_dir, out_name, overwrite, cover_info: C
                                         lambda progress: track_status_cb(track, TrackStatus.DOWNLOADING,
                                                                          {'progress': progress}),
                                         lambda: track_status_cb(track, TrackStatus.CONVERTING, {}))
+                track_status_cb(track, TrackStatus.META_DATA, {})
                 _process_video(track, out_dir, out_name, msg_cb, overwrite, cover_info)
 
                 state = DoneStatus.SUCCESS
