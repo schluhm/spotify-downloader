@@ -157,7 +157,7 @@ def _acquire_song_lock(track: TrackInfo):
     """
     A lock can be acquired, when the song is not already downloaded and/or no other takes wants to download the song.
     """
-    return Store().insert_if_new(track)
+    return Store().insert_track_cache_if_new(track)
 
 
 # Looks up tracks on youtube, returns youtube ID if found, otherwise returns None

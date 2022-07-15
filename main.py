@@ -2,6 +2,7 @@ import json
 import multiprocessing
 import os
 from collections import defaultdict
+from enum import Enum
 
 import rich_click as click
 import spotipy
@@ -15,8 +16,10 @@ from downloader import TrackStatus, MessageSeverity
 from rich.progress import Progress
 from spotipy import CacheHandler
 from spotipy.oauth2 import SpotifyOAuth
-from storage import Store
+from storage import Store, Comparator
 from track import TrackInfo
+
+_STORE = Store()
 
 
 @click.group()
@@ -95,11 +98,9 @@ def login(client_id, client_secret, redirect_url, nb):
     set  S_CLIENT_SECRET=client_secret
     """
 
-    data = Store()
-
     if not client_id or not client_secret:
         click.echo(" No id or secret provided. Check for a stored id or secret.")
-        client = data.get_app_client_data()
+        client = _STORE.get_app_client_data()
 
         if not client:
             raise click.UsageError("CLIENT_ID or CLIENT_SECRET not provided and no id or secret stored.")
@@ -110,8 +111,8 @@ def login(client_id, client_secret, redirect_url, nb):
     click.echo("  Login ...")
 
     sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-        scope=data.SPOTIFY_REQUIRED_SCOPE,
-        cache_handler=StoreCacheHandler(data),
+        scope=_STORE.SPOTIFY_REQUIRED_SCOPE,
+        cache_handler=StoreCacheHandler(_STORE),
         client_id=client_id,
         client_secret=client_secret,
         redirect_uri=redirect_url,
@@ -120,7 +121,7 @@ def login(client_id, client_secret, redirect_url, nb):
 
     click.echo("  ... as " + click.style(sp.current_user()["display_name"], fg="blue"))
     click.echo(F" Store client id and secret for future use")
-    data.add_app_client_data(client_id, client_secret)
+    _STORE.add_app_client_data(client_id, client_secret)
 
 
 @main.command()
@@ -152,6 +153,82 @@ def login_logout():
 
     Store().delete_cached_login_token()
     click.echo(f"Logged out")
+
+
+@main.command()
+@click.option(
+    "-o", "--order-by",
+    default=["artist", "release_date", "album", "disc_number", "track_number", "track_id"],
+    multiple=True,
+    help="Specify the order of shown cache entries. "
+         "Specify the option multiple times, to order lexicographically by multiple elements.",
+    type=click.Choice(_STORE.get_track_cache_fields(), case_sensitive=False),
+    show_default=True
+)
+@click.option(
+    "-c", "--column",
+    default=_STORE.get_track_cache_fields(),
+    multiple=True,
+    help="Specify which entries to show. "
+         "Specify the option multiple times, to order lexicographically by multiple elements.",
+    type=click.Choice(_STORE.get_track_cache_fields(), case_sensitive=False),
+    show_default=True
+)
+@click.option(
+    "-w", "--where",
+    multiple=True,
+    nargs=3,
+    help="Filter for specific fields. "
+         "Specify the option for teh same field multiple times, to build a disjunction. "
+         "Specify different fields to build a conjugation. "
+         "This can be passed like: -w artist LIKE 'The %' -w track_number '<' 4 -w [...] "
+         f"i.e. after the flag you first pass the field name "
+         f"then you pass the comparator and then the value to compare against.",
+    type=click.Tuple([
+        click.Choice(_STORE.get_track_cache_fields(), case_sensitive=False),
+        click.Choice([x.value for x in Comparator], case_sensitive=False),
+        str
+    ]),
+    show_default=True
+)
+def cache_read(order_by, column, where):
+    """
+    Display which tracks are stored in the internal track cache.
+
+    The cache stores which tracks are already downloaded.
+    When downloading tracks, tracks, which are in the cache will not be downloaded again.
+    """
+    data = _STORE.read_track_cache(order_by, column, where)
+
+    table = Table(title="[bold]Track cache "
+                        f"([purple]{len(data)}[/purple] / [purple]{_STORE.read_track_cache_size()}[/purple] "
+                        "displayed)[/bold]")
+
+    column_header = {
+        'track_id': lambda: table.add_column("track_id", style="white", no_wrap=True),
+        'artist': lambda: table.add_column("artist", style="bold", no_wrap=True),
+        'album': lambda: table.add_column("album", no_wrap=True),
+        'disc_number': lambda: table.add_column("disc_number", justify="center", no_wrap=True),
+        'name': lambda: table.add_column("name", justify="left", style="bold", no_wrap=True),
+        'track_number': lambda: table.add_column("track_number", justify="center", no_wrap=True),
+        'release_data': lambda: table.add_column("release_data", no_wrap=True),
+    }
+
+    for c in column:
+        column_header.get(c, lambda: table.add_column(c, no_wrap=True))()
+
+    for result in data:
+        table.add_row(*[str(x) for x in result])
+
+    Console().print(table)
+
+
+@main.command()
+def cache_clear():
+    """
+    Clear all tracks from the internal track cache.
+    """
+    _STORE.clear_track_cache()
 
 
 @main.command()
@@ -250,16 +327,14 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, ag
     """
     cons = Console()
 
-    data = Store()
-
-    client = data.get_app_client_data()
+    client = _STORE.get_app_client_data()
 
     if not client:
         raise click.UsageError("You have to log in before you can download songs.")
 
     sp = spotipy.Spotify(auth_manager=SpotifyOAuthNoLogin(
-        scope=data.SPOTIFY_REQUIRED_SCOPE,
-        cache_handler=StoreCacheHandler(data),
+        scope=_STORE.SPOTIFY_REQUIRED_SCOPE,
+        cache_handler=StoreCacheHandler(_STORE),
         client_id=client.id,
         client_secret=client.secret,
         redirect_uri="-/-"
