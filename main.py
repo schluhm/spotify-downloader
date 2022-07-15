@@ -280,7 +280,7 @@ def cache_clear(where):
 @URL_FILE_OPTION
 @ARTIST_ALBUM_OPTION
 @AGGREGATE_OPTION
-def cache_load(urls: list, url_file, artist_album, aggregate):
+def cache_load(urls: list, url_file: list, artist_album, aggregate):
     """
     Load some songs into the internal cache without downloading them.
     """
@@ -373,7 +373,7 @@ def cache_load(urls: list, url_file, artist_album, aggregate):
     default="png",
     show_default=True
 )
-def download(urls: list, url_file, out, name, cores, overwrite, artist_album, aggregate, dry_run, embed_cover,
+def download(urls: list, url_file: list, out, name, cores, overwrite, artist_album, aggregate, dry_run, embed_cover,
              cover_format):
     """
     Download tracks.
@@ -458,6 +458,9 @@ def _load_spotify_api():
 
 
 def _add_urls_from_file(cons, urls, url_files):
+    if type(urls) == tuple:
+        urls = list(urls)
+
     for uf in url_files:
         cons.print(f"[bold]Add addition urls from '{uf}'[/bold]")
         with open(uf, 'r') as f:
