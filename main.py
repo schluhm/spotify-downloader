@@ -4,6 +4,7 @@ import os
 
 import rich_click as click
 import spotipy
+from PIL import Image
 from click_params import URL
 from rich.console import Console
 from rich.table import Table
@@ -158,7 +159,7 @@ def login_logout():
     type=URL,
 )
 @click.option(
-    "-u", "--url_file",
+    "-u", "--url-file",
     type=click.Path(dir_okay=False, exists=True, resolve_path=True),
     help="A file containing urls per line. They will be added to the [URLS] list before processing.",
 )
@@ -217,7 +218,24 @@ def login_logout():
     help="Dont try to download any track.",
     show_default=True
 )
-def download(urls: list, url_file, out, name, cores, overwrite, artist_album, aggregate, dry_run):
+@click.option(
+    "--embed-cover/--no-embed-cover",
+    default=True,
+    is_flag=True,
+    help="Whether the album cover of a song should be embedded or not.",
+    show_default=True
+)
+@click.option(
+    "--cover-format",
+    help="The image type used to store the embedded album cover. "
+         "before it gets embedded. Be aware, that not all players may support all image types types.",
+    type=click.Choice(list({ex[1:] for ex, f in Image.registered_extensions().items() if f in Image.SAVE}),
+                      case_sensitive=False),
+    default="png",
+    show_default=True
+)
+def download(urls: list, url_file, out, name, cores, overwrite, artist_album, aggregate, dry_run, embed_cover,
+             cover_format):
     """
     Download tracks.
 
@@ -267,7 +285,8 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, ag
         }]}
     else:
         cons.print("")
-        track_messages = download_tracks(cons, songs_to_download, out, name, cores, overwrite)
+        track_messages = download_tracks(cons, songs_to_download, out, name, cores, overwrite,
+                                         cover_info=downloader.CoverInfo(embed_cover, cover_format))
 
     cons.print("")
     cons.print(
@@ -406,7 +425,7 @@ def extract_tracks(cons, sp, urls, album_group, aggregate):
     return songs_to_download
 
 
-def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite):
+def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite, cover_info: downloader.CoverInfo):
     track_messages = {}
 
     with Progress(console=cons) as gui:
@@ -463,7 +482,8 @@ def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite
             out_name,
             handle_progress,
             cores=cores,
-            overwrite=overwrite
+            overwrite=overwrite,
+            cover_info=cover_info
         )
 
         return track_messages

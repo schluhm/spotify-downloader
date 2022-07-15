@@ -13,6 +13,7 @@ rich = "^12.5.1"
 rich-click = "^1.5.1"
 yt-dlp = "^2022.6.29"
 eyed3 = "^0.9.6"
+Pillow = "^9.2.0"
 
 [tool.poetry.dev-dependencies]
 

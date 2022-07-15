@@ -1,5 +1,6 @@
 import collections.abc
 import copy
+import io
 import multiprocessing
 import os
 from collections import namedtuple
@@ -9,20 +10,12 @@ from typing import Callable, List
 from multiprocessing import Queue, Pool
 
 import eyed3 as eyed3
+from PIL import Image
 from eyed3.id3.frames import ImageFrame
 from yt_dlp import YoutubeDL
 import re
 import unicodedata
-import urllib.request
-
-
-class TrackInfo(namedtuple("TrackInfo", "id name album images artists disc_number track_number release_date")):
-    def __eq__(self, other):
-        return self.id == other.id
-
-    def __hash__(self):
-        return self.id.__hash__()
-
+from urllib.request import urlopen
 
 YDL_OPTIONS = {
     'noplaylist': True,
@@ -33,6 +26,14 @@ YDL_OPTIONS = {
         'preferredcodec': 'mp3',
         'preferredquality': '192',
     }]}
+
+
+class TrackInfo(namedtuple("TrackInfo", "id name album images artists disc_number track_number release_date")):
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __hash__(self):
+        return self.id.__hash__()
 
 
 class TrackStatus(Enum):
@@ -56,13 +57,17 @@ class MessageSeverity(Enum):
     ERROR = 2
 
 
+CoverInfo = namedtuple("CoverInfo", "embedded format")
+
+
 def download_tracks(
         tracks: List[TrackInfo],
         out: str,
         name: str,
         track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None],
         cores=multiprocessing.cpu_count(),
-        overwrite=False
+        overwrite=False,
+        cover_info=CoverInfo(True, None)
 ):
     with Pool(cores) as pool:
         manager = multiprocessing.Manager()
@@ -70,7 +75,7 @@ def download_tracks(
 
         work = pool.starmap_async(
             _track_download_worker,
-            zip(tracks, repeat(out), repeat(name), repeat(overwrite), repeat(callback_queue)),
+            zip(tracks, repeat(out), repeat(name), repeat(overwrite), repeat(cover_info), repeat(callback_queue)),
             callback=lambda _: callback_queue.put({
                 'type': MessageType.POOL_DONE
             }, block=True),
@@ -99,13 +104,15 @@ def download_tracks(
         pool.join()
 
 
-def _track_download_worker(track: TrackInfo, out_dir, out_name, overwrite, callback_queue: Queue):
+def _track_download_worker(track: TrackInfo, out_dir, out_name, overwrite, cover_info: CoverInfo,
+                           callback_queue: Queue):
     try:
         download_track(
             track,
             out_dir,
             out_name,
             overwrite,
+            cover_info,
             lambda t, status, args: callback_queue.put({
                 'type': MessageType.WORKER_STATUS,
                 'payload': (t, status, args)
@@ -114,7 +121,7 @@ def _track_download_worker(track: TrackInfo, out_dir, out_name, overwrite, callb
         raise Exception(f"Error for track: {track}") from e
 
 
-def download_track(track: TrackInfo, out_dir, out_name, overwrite,
+def download_track(track: TrackInfo, out_dir, out_name, overwrite, cover_info: CoverInfo,
                    track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None]):
     track_status_cb(track, TrackStatus.START, {})
 
@@ -132,7 +139,7 @@ def download_track(track: TrackInfo, out_dir, out_name, overwrite,
                                    lambda progress: track_status_cb(track, TrackStatus.DOWNLOADING,
                                                                     {'progress': progress}),
                                    lambda: track_status_cb(track, TrackStatus.CONVERTING, {}))
-            process_video(track, out_dir, out_name, msg_cb, overwrite)
+            process_video(track, out_dir, out_name, msg_cb, overwrite, cover_info)
     finally:
         track_status_cb(track, TrackStatus.DONE, {})
 
@@ -176,7 +183,7 @@ def download_youtube_video(track: TrackInfo, video_id: str, directory: str, msg_
         ydl.download(url_list=[url])
 
 
-def process_video(track: TrackInfo, out_dir, out_name, msg_cb, overwrite):
+def process_video(track: TrackInfo, out_dir, out_name, msg_cb, overwrite, cover_info: CoverInfo):
     mp3_loc = u'{}/{}.mp3'.format(out_dir, track.id)
 
     audiofile = eyed3.load(mp3_loc)
@@ -193,8 +200,11 @@ def process_video(track: TrackInfo, out_dir, out_name, msg_cb, overwrite):
     audiofile.tag.recording_date = track.release_date
     audiofile.tag.release_date = track.release_date
 
-    response = urllib.request.urlopen(track.images[0])
-    audiofile.tag.images.set(ImageFrame.FRONT_COVER, response.read(), 'image/jpeg')
+    if cover_info.embedded:
+        img = Image.open(urlopen(track.images[0]))
+        imgByteArr = io.BytesIO()
+        img.save(imgByteArr, format=cover_info.format if cover_info.format else img.format)
+        audiofile.tag.images.set(ImageFrame.FRONT_COVER, imgByteArr.getvalue(), f'image/{cover_info.format}')
 
     audiofile.tag.save()
 
