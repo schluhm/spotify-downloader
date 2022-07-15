@@ -325,7 +325,7 @@ def cache_load(urls: list, url_file, artist_album, aggregate):
 )
 @click.option(
     "-n", "--name",
-    default="{artists[0]}/{album}/{name}.mp3",
+    default="{album_artists[0]}/{album}/{name}.mp3",
     type=str,
     help="How the files will be named.\n"
          "The following placeholders will be interpolated with track information: " +
@@ -514,6 +514,7 @@ def _extract_tracks(cons, sp, urls, album_group, aggregate):
                 track["id"],
                 track["name"],
                 album["name"],
+                [x["name"] for x in album["artists"]],
                 [x["url"] for x in album["images"]],
                 [x["name"] for x in track["artists"]],
                 track["disc_number"],
@@ -537,6 +538,7 @@ def _extract_tracks(cons, sp, urls, album_group, aggregate):
                     'items.track.id,'
                     'items.track.album.images.url,'
                     'items.track.album.name,'
+                    'items.track.album.artists.name,'
                     'items.track.album.release_date,'
                     'items.track.artists.name,'
                     'items.track.disc_number,'

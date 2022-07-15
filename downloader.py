@@ -207,9 +207,9 @@ def _process_video(track: TrackInfo, out_dir, out_name, msg_cb, overwrite, cover
     audiofile = eyed3.load(mp3_loc)
     if audiofile.tag is None:
         audiofile.initTag()
-    audiofile.tag.artist = ",".join(track.artists)
+    audiofile.tag.artist = ";".join(track.artists)
     audiofile.tag.album = track.album
-    audiofile.tag.album_artist = ",".join(track.artists)
+    audiofile.tag.album_artist = ";".join(track.album_artists)
     audiofile.tag.title = track.name
     audiofile.tag.track_num = track.track_number
     audiofile.tag.disc_num = track.disc_number
