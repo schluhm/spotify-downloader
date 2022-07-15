@@ -240,10 +240,11 @@ def cache(order_by, column, where):
 
     column_header = {
         'track_id': lambda: table.add_column("track_id", style="white", no_wrap=True),
-        'artist': lambda: table.add_column("artist", style="bold", no_wrap=True),
-        'album': lambda: table.add_column("album", no_wrap=True),
+        'album_artist': lambda: table.add_column("album_artist", style="bold", no_wrap=True),
+        'artist': lambda: table.add_column("artist", style="bold", no_wrap=False),
+        'album': lambda: table.add_column("album", no_wrap=False),
         'disc_number': lambda: table.add_column("disc_number", justify="center", no_wrap=True),
-        'name': lambda: table.add_column("name", justify="left", style="bold", no_wrap=True),
+        'name': lambda: table.add_column("name", justify="left", style="bold", no_wrap=False),
         'track_number': lambda: table.add_column("track_number", justify="center", no_wrap=True),
         'release_data': lambda: table.add_column("release_data", no_wrap=True),
     }
