@@ -73,6 +73,9 @@ def main():
     Be aware that this program does not download the music from spotify.
     It searches YouTube for Music Videos and downloads those.
 
+    It uses a 'cache' which stores which tracks where already downloaded.
+    You may have to clear the tracks from the cache before you can download those tracks again.
+
     Try a command with '--help' to receive more info about a specific command.
 
     Quick example:
@@ -177,14 +180,17 @@ def login_info():
     This will exit with status code '1' when no id or secret are currently stored.
     """
 
-    client = Store().get_app_client_data()
+    client = _STORE.get_app_client_data()
 
     if not client:
         click.echo("No client data provided. Try the 'login' command.")
         exit(1)
 
-    click.echo(f"ID:     {click.style(client.id, fg='blue')}")
-    click.echo(f"Secret: {click.style(client.secret, fg='blue')}")
+    table = Table("[bold]App Info[/bold]", box=None)
+    table.add_row("[white]ID[/white]", f"[bold]{client.id}[/bold]")
+    table.add_row("[white]SECRET[/white]", f"[bold]{client.secret}[/bold]")
+
+    Console().print(table)
 
 
 @main.command()
