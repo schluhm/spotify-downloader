@@ -225,7 +225,7 @@ def login_logout():
     show_default=True
 )
 @WHERE_OPTION
-def cache_read(order_by, column, where):
+def cache(order_by, column, where):
     """
     Display which tracks are stored in the internal track cache.
 
