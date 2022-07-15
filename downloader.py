@@ -167,7 +167,7 @@ def _lookup_song(track: TrackInfo, msg_cb):
     options = copy.deepcopy(YDL_OPTIONS)
     options['logger'] = _YoutubeDLNullLogger(msg_cb)
 
-    arg = track.name + " by " + ",".join(track.artists)
+    arg = track.name + " by " + " ".join(track.artists)
 
     try:
         with YoutubeDL(options) as ydl:

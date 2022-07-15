@@ -57,10 +57,11 @@ class Store:
         self.__connection.execute('''
             CREATE TABLE IF NOT EXISTS tracks (
                 track_id TEXT NOT NULL PRIMARY KEY,
-                artist TEXT NOT NULL,
+                album_artist TEXT NOT NULL,
                 album TEXT NOT NULL,
                 disc_number INTEGER NOT NULL,
                 track_number INTEGER NOT NULL,
+                artist TEXT NOT NULL,
                 name TEXT NOT NULL,
                 release_date TIMESTAMP NOT NULL
             )
@@ -107,10 +108,10 @@ class Store:
         try:
             self.__connection.execute('''
                             INSERT INTO tracks
-                                (track_id, name, album, artist, disc_number, track_number, release_date)
-                                VALUES(?,?,?,?,?, ?, ?)
-                            ''', [track.id, track.name, track.album, track.artists[0], track.disc_number,
-                                  track.track_number, track.release_date])
+                                (track_id, album_artist, name, album, artist, disc_number, track_number, release_date)
+                                VALUES(?,?,?,?,?,?,?,?)
+                            ''', [track.id, track.album_artists[0], track.name, track.album, track.artists[0],
+                                  track.disc_number, track.track_number, track.release_date])
             self.__connection.commit()
             return True
         except sqlite3.IntegrityError as e:
