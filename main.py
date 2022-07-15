@@ -183,7 +183,7 @@ def login_logout():
 @click.option(
     "-c", "--cores",
     default=multiprocessing.cpu_count(),
-    type=int,
+    type=click.IntRange(min=1),
     help="The number of parallel downloads",
     show_default=True
 )
@@ -272,10 +272,10 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, ag
             urls.extend(lines)
             cons.print(f"Added {len(lines)} additional url{'' if len(lines) == 1 else 's'}.\n")
 
-    if len(urls) == 0:
-        raise click.UsageError("No tracks provided.")
-
     songs_to_download = extract_tracks(cons, sp, urls, artist_album, aggregate)
+
+    if len(songs_to_download) == 0:
+        raise click.UsageError("No tracks provided.")
 
     if dry_run:
         track_messages = {'_': [{
@@ -412,7 +412,21 @@ def extract_tracks(cons, sp, urls, album_group, aggregate):
                            f"Track{'s' if len(tracks) != 1 else ''} in [cyan]{album_name}[/cyan]")
                 tracks.extend(album_tracks)
             url_name = sp.artist(artist_id=url)["name"]
-
+        elif "show" in url:
+            click.echo(click.style(f"Show: {url}", bold=True))
+            show = sp.show(show_id=url)
+            for idx, ep in enumerate(util_read_pagination(sp, show["episodes"])):
+                tracks.append(TrackInfo(
+                    ep["id"],
+                    ep["name"],
+                    show["name"],
+                    [x["url"] for x in ep["images"]],
+                    [show["publisher"]],
+                    1,
+                    idx + 1,
+                    ep["release_date"]
+                ))
+            url_name = show["name"]
         else:
             raise click.UsageError(f"Unrecognized URL: {url}")
 
