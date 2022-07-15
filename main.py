@@ -1,6 +1,7 @@
 import json
 import multiprocessing
 import os
+from collections import defaultdict
 
 import rich_click as click
 import spotipy
@@ -10,11 +11,12 @@ from rich.console import Console
 from rich.table import Table
 
 import downloader
-from downloader import TrackInfo, TrackStatus, MessageSeverity
+from downloader import TrackStatus, MessageSeverity
 from rich.progress import Progress
 from spotipy import CacheHandler
 from spotipy.oauth2 import SpotifyOAuth
 from storage import Store
+from track import TrackInfo
 
 
 @click.group()
@@ -126,7 +128,7 @@ def login_info():
     """
     Print the id and secret of the currently active app.
 
-    See teh 'login' command to set a client id or secret.
+    See the 'login' command to set a client id or secret.
     This will exit with status code '1' when no id or secret are currently stored.
     """
 
@@ -191,7 +193,8 @@ def login_logout():
     "-f", "--overwrite/--no-overwrite",
     default=False,
     is_flag=True,
-    help="Overwrite tracks, that already exist on the hard disk.",
+    help="Overwrite tracks, that already exist on the hard disk. "
+         "Be aware, that this will not ignore the cache.",
     show_default=True
 )
 @click.option(
@@ -283,14 +286,11 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, ag
             'source': '[purple]Dry Run[/purple]',
             'msg': 'This was a dry run. No tracks where actually downloaded.'
         }]}
+        track_done_state = {downloader.DoneStatus.DRY: len(songs_to_download)}
     else:
         cons.print("")
-        track_messages = download_tracks(cons, songs_to_download, out, name, cores, overwrite,
-                                         cover_info=downloader.CoverInfo(embed_cover, cover_format))
-
-    cons.print("")
-    cons.print(
-        f"{'[strike]' if dry_run else ''}Downloaded [purple]{len(songs_to_download)}[/purple] tracks [green]successfully[/green]{'[/strike]' if dry_run else ''}")
+        track_messages, track_done_state = download_tracks(cons, songs_to_download, out, name, cores, overwrite,
+                                                           cover_info=downloader.CoverInfo(embed_cover, cover_format))
 
     if len(track_messages) != 0:
         cons.print("")
@@ -316,9 +316,26 @@ def download(urls: list, url_file, out, name, cores, overwrite, artist_album, ag
 
         cons.print(table)
 
+    cons.print("")
+    table = Table("[bold]Download Result per Track[/bold]", box=None)
+    for status, count in track_done_state.items():
+        table.add_row({
+                          downloader.DoneStatus.DRY.name: f"[purple]{downloader.DoneStatus.DRY.name}[/purple]",
+                          downloader.DoneStatus.SUCCESS.name: f"[green]{downloader.DoneStatus.SUCCESS.name}[/green]",
+                          downloader.DoneStatus.CACHED.name: f"[purple]{downloader.DoneStatus.CACHED.name}[/purple]",
+                          downloader.DoneStatus.ERROR.name: f"[red]{downloader.DoneStatus.ERROR.name}[/red]"
+                      }.get(status.name, status.name), str(count))
+    cons.print(table)
+
 
 def extract_tracks(cons, sp, urls, album_group, aggregate):
     songs_to_download = set()
+
+    # TODO aggregate came later and now this is a little bit messy.
+    # This could be done in two steps:
+    #  First: gather all tracks
+    #  Second: if aggregate gather all albums and extract the tracks again
+    # Currently we have to encode some logic kinda twice wich is not nice.
 
     def is_playlist(url):
         return "playlist" in url
@@ -441,6 +458,7 @@ def extract_tracks(cons, sp, urls, album_group, aggregate):
 
 def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite, cover_info: downloader.CoverInfo):
     track_messages = {}
+    track_done_state = defaultdict(lambda: 0)
 
     with Progress(console=cons) as gui:
         overall = gui.add_task(
@@ -461,26 +479,28 @@ def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite
             elif status is TrackStatus.SEARCHING:
                 gui.update(
                     progress[current_track.id],
-                    description=f"  {display_name} [light]   \[search]"
+                    description=f"  {display_name} [light]   \\[search]"
                 )
             elif status is TrackStatus.DOWNLOADING:
                 gui.update(
                     progress[current_track.id],
-                    description=f"  {display_name} [light] \[download]",
+                    description=f"  {display_name} [light] \\[download]",
                     completed=args['progress'],
                     total=1
                 )
             elif status is TrackStatus.CONVERTING:
                 gui.update(
                     progress[current_track.id],
-                    description=f"  {display_name} [light]  \[convert]",
+                    description=f"  {display_name} [light]  \\[convert]",
                     total=None
                 )
             elif status is TrackStatus.DONE:
+                track_done_state[args["state"]] += 1
                 gui.advance(overall, 1)
                 gui.update(
                     overall,
-                    description=f"Tracks [purple]{gui.tasks[overall].completed}[/purple] / [purple]{len(songs_to_download)}[/purple] "
+                    description=f"Tracks [purple]{gui.tasks[overall].completed}[/purple] /"
+                                f" [purple]{len(songs_to_download)}[/purple] "
                 )
                 gui.remove_task(progress[current_track.id])
                 gui.refresh()
@@ -500,7 +520,7 @@ def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite
             cover_info=cover_info
         )
 
-        return track_messages
+        return track_messages, track_done_state
 
 
 def util_read_pagination(sp, results):

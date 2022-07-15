@@ -17,6 +17,9 @@ import re
 import unicodedata
 from urllib.request import urlopen
 
+from storage import Store
+from track import TrackInfo
+
 YDL_OPTIONS = {
     'noplaylist': True,
     'quiet': True,
@@ -28,14 +31,6 @@ YDL_OPTIONS = {
     }]}
 
 
-class TrackInfo(namedtuple("TrackInfo", "id name album images artists disc_number track_number release_date")):
-    def __eq__(self, other):
-        return self.id.__eq(other.id)
-
-    def __hash__(self):
-        return self.id.__hash__()
-
-
 class TrackStatus(Enum):
     START = 0
     SEARCHING = 1
@@ -43,6 +38,13 @@ class TrackStatus(Enum):
     CONVERTING = 4
     DONE = 5
     MESSAGE = 6
+
+
+class DoneStatus(Enum):
+    CACHED = 0,
+    SUCCESS = 1,
+    ERROR = 2,
+    DRY = -1
 
 
 class MessageType(Enum):
@@ -128,24 +130,38 @@ def download_track(track: TrackInfo, out_dir, out_name, overwrite, cover_info: C
     def msg_cb(msg, serv):
         track_status_cb(track, TrackStatus.MESSAGE, {'msg': msg, 'serv': serv})
 
-    try:
-        track_status_cb(track, TrackStatus.SEARCHING, {})
-        video_id = lookup_song(track, msg_cb)
+    state = DoneStatus.ERROR
 
-        if video_id:
-            track_status_cb(track, TrackStatus.DOWNLOADING, {'progress': 0})
-            download_youtube_video(track, video_id, out_dir,
-                                   msg_cb,
-                                   lambda progress: track_status_cb(track, TrackStatus.DOWNLOADING,
-                                                                    {'progress': progress}),
-                                   lambda: track_status_cb(track, TrackStatus.CONVERTING, {}))
-            process_video(track, out_dir, out_name, msg_cb, overwrite, cover_info)
+    try:
+        if _acquire_song_lock(track):
+            track_status_cb(track, TrackStatus.SEARCHING, {})
+            video_id = _lookup_song(track, msg_cb)
+
+            if video_id:
+                track_status_cb(track, TrackStatus.DOWNLOADING, {'progress': 0})
+                _download_youtube_video(track, video_id, out_dir,
+                                        msg_cb,
+                                        lambda progress: track_status_cb(track, TrackStatus.DOWNLOADING,
+                                                                         {'progress': progress}),
+                                        lambda: track_status_cb(track, TrackStatus.CONVERTING, {}))
+                _process_video(track, out_dir, out_name, msg_cb, overwrite, cover_info)
+
+                state = DoneStatus.SUCCESS
+        else:
+            state = DoneStatus.CACHED
     finally:
-        track_status_cb(track, TrackStatus.DONE, {})
+        track_status_cb(track, TrackStatus.DONE, {'state': state})
+
+
+def _acquire_song_lock(track: TrackInfo):
+    """
+    A lock can be acquired, when the song is not already downloaded and/or no other takes wants to download the song.
+    """
+    return Store().insert_if_new(track)
 
 
 # Looks up tracks on youtube, returns youtube ID if found, otherwise returns None
-def lookup_song(track: TrackInfo, msg_cb):
+def _lookup_song(track: TrackInfo, msg_cb):
     options = copy.deepcopy(YDL_OPTIONS)
     options['logger'] = _YoutubeDLNullLogger(msg_cb)
 
@@ -160,7 +176,7 @@ def lookup_song(track: TrackInfo, msg_cb):
         return None
 
 
-def download_youtube_video(track: TrackInfo, video_id: str, directory: str, msg_cb, download_cb, postprocess_cb):
+def _download_youtube_video(track: TrackInfo, video_id: str, directory: str, msg_cb, download_cb, postprocess_cb):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -183,7 +199,7 @@ def download_youtube_video(track: TrackInfo, video_id: str, directory: str, msg_
         ydl.download(url_list=[url])
 
 
-def process_video(track: TrackInfo, out_dir, out_name, msg_cb, overwrite, cover_info: CoverInfo):
+def _process_video(track: TrackInfo, out_dir, out_name, msg_cb, overwrite, cover_info: CoverInfo):
     mp3_loc = u'{}/{}.mp3'.format(out_dir, track.id)
 
     audiofile = eyed3.load(mp3_loc)
