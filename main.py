@@ -514,9 +514,9 @@ def _extract_tracks(cons, sp, urls, album_group, aggregate):
                 track["id"],
                 track["name"],
                 album["name"],
-                [x["name"] for x in album["artists"]],
+                list(sorted(x["name"] for x in album["artists"])),
                 [x["url"] for x in album["images"]],
-                [x["name"] for x in track["artists"]],
+                list(sorted(x["name"] for x in track["artists"])),
                 track["disc_number"],
                 track["track_number"],
                 album["release_date"]
