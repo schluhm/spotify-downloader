@@ -2,7 +2,6 @@ import json
 import multiprocessing
 import os
 from collections import defaultdict
-from enum import Enum
 
 import rich_click as click
 import spotipy
@@ -41,7 +40,7 @@ WHERE_OPTION = click.option(
 
 URL_FILE_OPTION = click.option(
     "-u", "--url-file",
-    type=click.Path(dir_okay=False, exists=True, resolve_path=True),
+    type=click.File(),
     help="Files containing urls per line. They will be added to the [URLS] list before processing.",
     multiple=True,
 )
@@ -463,11 +462,10 @@ def _add_urls_from_file(cons, urls, url_files):
         urls = list(urls)
 
     for uf in url_files:
-        cons.print(f"[bold]Add addition urls from '{uf}'[/bold]")
-        with open(uf, 'r') as f:
-            lines = f.read().splitlines()
-            urls.extend(lines)
-            cons.print(f"Added {len(lines)} additional url{'' if len(lines) == 1 else 's'}.\n")
+        cons.print(f"[bold]Add addition urls from '{os.path.realpath(uf.name)}'[/bold]")
+        lines = uf.read().splitlines()
+        urls.extend(lines)
+        cons.print(f"Added {len(lines)} additional url{'' if len(lines) == 1 else 's'}.\n")
     return urls
 
 
