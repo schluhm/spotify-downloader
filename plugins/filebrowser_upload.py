@@ -103,7 +103,7 @@ class FilebrowserUploadPlugin(Plugin):
         }
 
         with fileobj:
-            response = requests.post(  # TODO somehow display the upload progress
+            response = requests.post(
                 url, data=fileobj,
                 params={"override": False},
                 headers=headers,
