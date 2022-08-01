@@ -6,6 +6,7 @@ import os
 from collections import namedtuple
 from enum import Enum
 from itertools import repeat
+from time import sleep
 from typing import Callable, List
 from multiprocessing import Queue, Pool
 
@@ -68,6 +69,7 @@ def download_tracks(
         out: str,
         name: str,
         track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None],
+        plugins,
         cores=multiprocessing.cpu_count(),
         overwrite=False,
         cover_info=CoverInfo(True, None)
@@ -78,7 +80,13 @@ def download_tracks(
 
         work = pool.starmap_async(
             _track_download_worker,
-            zip(tracks, repeat(out), repeat(name), repeat(overwrite), repeat(cover_info), repeat(callback_queue)),
+            zip(tracks,
+                repeat(out),
+                repeat(name),
+                repeat(overwrite),
+                repeat(cover_info),
+                repeat(plugins),
+                repeat(callback_queue)),
             callback=lambda _: callback_queue.put({
                 'type': MessageType.POOL_DONE
             }, block=True),
@@ -107,7 +115,7 @@ def download_tracks(
         pool.join()
 
 
-def _track_download_worker(track: TrackInfo, out_dir, out_name, overwrite, cover_info: CoverInfo,
+def _track_download_worker(track: TrackInfo, out_dir, out_name, overwrite, cover_info: CoverInfo, plugins,
                            callback_queue: Queue):
     try:
         download_track(
@@ -116,6 +124,7 @@ def _track_download_worker(track: TrackInfo, out_dir, out_name, overwrite, cover
             out_name,
             overwrite,
             cover_info,
+            plugins,
             lambda t, status, args: callback_queue.put({
                 'type': MessageType.WORKER_STATUS,
                 'payload': (t, status, args)
@@ -124,7 +133,7 @@ def _track_download_worker(track: TrackInfo, out_dir, out_name, overwrite, cover
         raise Exception(f"Error for track: {track}") from e
 
 
-def download_track(track: TrackInfo, out_dir, out_name, overwrite, cover_info: CoverInfo,
+def download_track(track: TrackInfo, out_dir, out_name, overwrite, cover_info: CoverInfo, plugins,
                    track_status_cb: Callable[[TrackInfo, TrackStatus, dict], None]):
     track_status_cb(track, TrackStatus.START, {})
 
@@ -146,7 +155,11 @@ def download_track(track: TrackInfo, out_dir, out_name, overwrite, cover_info: C
                                                                          {'progress': progress}),
                                         lambda: track_status_cb(track, TrackStatus.CONVERTING, {}))
                 track_status_cb(track, TrackStatus.META_DATA, {})
-                _process_video(track, out_dir, out_name, msg_cb, overwrite, cover_info)
+                path, name = _process_video(track, out_dir, out_name, msg_cb, overwrite, cover_info)
+
+                # TODO: some kind of priority (upload first / delete later aso)
+                for p in plugins:
+                    p.on_track_done(path, name)
 
                 state = DoneStatus.SUCCESS
         else:
@@ -238,11 +251,14 @@ def _process_video(track: TrackInfo, out_dir, out_name, msg_cb, overwrite, cover
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if overwrite:
         os.replace(mp3_loc, path)
+        return path, out_name
     elif os.path.exists(path):
         msg_cb(f"Stored as {mp3_loc} because {path} already existed. See the '[cyan]--overwrite[/cyan]' "
                "option to overwrite already existing files.", MessageSeverity.WARNING)
+        return mp3_loc, out_name
     else:
         os.rename(mp3_loc, path)
+        return path, out_name
 
 
 def _slugify(value, allow_unicode=False):

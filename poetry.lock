@@ -7,6 +7,20 @@ optional = false
 python-versions = ">=3.6"
 
 [[package]]
+name = "attrs"
+version = "20.3.0"
+description = "Classes Without Boilerplate"
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+
+[package.extras]
+dev = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "zope.interface", "furo", "sphinx", "pre-commit"]
+docs = ["furo", "sphinx", "zope.interface"]
+tests = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "zope.interface"]
+tests_no_zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six"]
+
+[[package]]
 name = "brotli"
 version = "1.0.9"
 description = "Python bindings for the Brotli compression library"
@@ -95,7 +109,7 @@ optional = false
 python-versions = "*"
 
 [package.extras]
-test = ["flake8 (==3.7.8)", "hypothesis (==3.55.3)"]
+test = ["hypothesis (==3.55.3)", "flake8 (==3.7.8)"]
 
 [[package]]
 name = "coverage"
@@ -165,7 +179,7 @@ test = ["pytest (>=6.2.1,<7.0.0)", "pytest-cov (>=2.10.1,<3.0.0)", "tox (>=3.20.
 
 [[package]]
 name = "filetype"
-version = "1.0.13"
+version = "1.1.0"
 description = "Infer file type and MIME type of any file/buffer. No external dependencies."
 category = "main"
 optional = false
@@ -347,7 +361,7 @@ python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
 name = "urllib3"
-version = "1.26.10"
+version = "1.26.11"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 category = "main"
 optional = false
@@ -391,7 +405,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 
 [[package]]
 name = "yt-dlp"
-version = "2022.6.29"
+version = "2022.7.18"
 description = "A youtube-dl fork with additional features and patches"
 category = "main"
 optional = false
@@ -408,10 +422,11 @@ websockets = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "f80997f977f005cb1232d47d1f531bbec409794ed83a4c1976f1b76c528fdf74"
+content-hash = "272833b42adb948e39f8079d4ddc68b44e4c51f375f52b965d3160b333163e57"
 
 [metadata.files]
 async-timeout = []
+attrs = []
 brotli = []
 brotlicffi = []
 certifi = []
@@ -439,10 +454,7 @@ redis = []
 requests = []
 rich = []
 rich-click = []
-six = [
-    {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
-    {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},
-]
+six = []
 spotipy = []
 toml = []
 urllib3 = []

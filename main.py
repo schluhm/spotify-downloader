@@ -2,6 +2,7 @@ import json
 import multiprocessing
 import os
 from collections import defaultdict
+from functools import reduce
 
 import rich_click as click
 import spotipy
@@ -11,10 +12,13 @@ from rich.console import Console
 from rich.table import Table
 
 import downloader
+import plugins
 from downloader import TrackStatus, MessageSeverity
 from rich.progress import Progress
 from spotipy import CacheHandler
 from spotipy.oauth2 import SpotifyOAuth
+
+from plugins import get_plugins
 from storage import Store, Comparator
 from track import TrackInfo
 
@@ -25,7 +29,7 @@ WHERE_OPTION = click.option(
     multiple=True,
     nargs=3,
     help="Filter for specific fields. "
-         "Specify the option for teh same field multiple times, to build a disjunction. "
+         "Specify the option for the same field multiple times, to build a disjunction. "
          "Specify different fields to build a conjugation. "
          "This can be passed like: -w artist LIKE 'The %' -w track_number '<' 4 -w [...] "
          f"i.e. after the flag you first pass the field name "
@@ -63,6 +67,11 @@ ARTIST_ALBUM_OPTION = click.option(
     type=click.Choice(['single', 'album', 'appears_on'], case_sensitive=False),
     show_default=True
 )
+
+
+def plugin_specific_options(f):
+    option_list = plugins.list_plugin_specific_options()
+    return reduce(lambda cmd, decorator: decorator(cmd), [f] + option_list)
 
 
 @click.group()
@@ -373,8 +382,9 @@ def cache_load(urls: list, url_file: list, artist_album, aggregate):
     default="png",
     show_default=True
 )
+@plugin_specific_options
 def download(urls: list, url_file: list, out, name, cores, overwrite, artist_album, aggregate, dry_run, embed_cover,
-             cover_format):
+             cover_format, **additional):
     """
     Download tracks.
 
@@ -385,6 +395,8 @@ def download(urls: list, url_file: list, out, name, cores, overwrite, artist_alb
 
     """
     cons = Console()
+
+    plugins = [x(**additional) for x in filter(lambda x: x.is_plugin_enabled(**additional), get_plugins())]
 
     sp = _load_spotify_api()
 
@@ -404,7 +416,8 @@ def download(urls: list, url_file: list, out, name, cores, overwrite, artist_alb
     else:
         cons.print("")
         track_messages, track_done_state = download_tracks(cons, songs_to_download, out, name, cores, overwrite,
-                                                           cover_info=downloader.CoverInfo(embed_cover, cover_format))
+                                                           cover_info=downloader.CoverInfo(embed_cover, cover_format),
+                                                           plugins=plugins)
 
     if len(track_messages) != 0:
         cons.print("")
@@ -599,7 +612,8 @@ def _extract_tracks(cons, sp, urls, album_group, aggregate):
     return songs_to_download
 
 
-def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite, cover_info: downloader.CoverInfo):
+def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite, cover_info: downloader.CoverInfo,
+                    plugins):
     track_messages = {}
     track_done_state = defaultdict(lambda: 0)
 
@@ -664,6 +678,7 @@ def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite
             out_dir,
             out_name,
             handle_progress,
+            plugins,
             cores=cores,
             overwrite=overwrite,
             cover_info=cover_info
