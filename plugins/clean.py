@@ -14,7 +14,7 @@ class CleanPlugin(Plugin):
     def get_name():
         return "clean"
 
-    def on_track_done(self, track_path, track_name):
+    def on_track_done(self, track_path, track_name, track_status_cb):
         os.remove(track_path)
 
 

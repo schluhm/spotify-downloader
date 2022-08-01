@@ -95,7 +95,7 @@ class Plugin:
     def is_plugin_enabled(cls, **kwargs):
         return cls.flag() in kwargs and kwargs[cls.flag()]
 
-    def on_track_done(self, track_path, track_name):
+    def on_track_done(self, track_path, track_name, track_status_cb):
         pass
 
 

@@ -38,8 +38,9 @@ class TrackStatus(Enum):
     DOWNLOADING = 2
     CONVERTING = 3
     META_DATA = 4
-    DONE = 5
-    MESSAGE = 6
+    PLUGIN = 5
+    DONE = 6
+    MESSAGE = 7
 
 
 class DoneStatus(Enum):
@@ -159,7 +160,8 @@ def download_track(track: TrackInfo, out_dir, out_name, overwrite, cover_info: C
 
                 # TODO: some kind of priority (upload first / delete later aso)
                 for p in plugins:
-                    p.on_track_done(path, name)
+                    track_status_cb(track, TrackStatus.PLUGIN, {})
+                    p.on_track_done(path, name, lambda x: track_status_cb(track, TrackStatus.PLUGIN, x))
 
                 state = DoneStatus.SUCCESS
         else:

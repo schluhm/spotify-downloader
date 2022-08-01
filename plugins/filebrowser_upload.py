@@ -1,7 +1,40 @@
 import click
 import requests
+from requests.utils import super_len
 
 from plugins import Plugin, register, PluginSpecificOption
+
+
+class ProgressFile:
+    def __init__(self, fileobj, track_status_cb):
+        self.track_status_cb = track_status_cb
+        self.fileobj = fileobj
+        self._length = super_len(self.fileobj)
+        self._read = 0
+
+    def __len__(self):
+        return self._length
+
+    def read(self, size=-1):
+        data = self.fileobj.read(size)
+        self._read += len(data)
+
+        self.track_status_cb({
+            'name': 'Upload',
+            'total': self._length,
+            'progress': self._read
+        })
+
+        return data
+
+    def close(self):
+        self.fileobj.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
 
 
 @register
@@ -61,9 +94,9 @@ class FilebrowserUploadPlugin(Plugin):
                  ] + super().get_plugin_specific_options()
         return option
 
-    def on_track_done(self, track_path, track_name):
+    def on_track_done(self, track_path, track_name, track_status_cb):
         url = self.api + "/resources/" + track_name
-        fileobj = open(track_path, 'rb')
+        fileobj = ProgressFile(open(track_path, 'rb'), track_status_cb)
         headers = {
             'X-Auth': self.token,  # version >= 2.0.3 seems use this header
             'Authorization': 'Bearer {}'.format(self.token),  # version <= 2.0.0 seems use this header

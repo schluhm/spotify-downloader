@@ -657,6 +657,14 @@ def download_tracks(cons, songs_to_download, out_dir, out_name, cores, overwrite
                     description=f"  {display_name} [light]\\[meta-data]",
                     total=None
                 )
+            elif status is TrackStatus.PLUGIN:
+                gui.update(
+                    progress[current_track.id],
+                    description=f"  {display_name} [light]" +
+                                f"\\[{args['name'] if 'name' in args else 'Plugin'}]".rjust(12, " "),
+                    completed=args['progress'] if 'progress' in args else None,
+                    total=args['total'] if 'total' in args else None
+                )
             elif status is TrackStatus.DONE:
                 track_done_state[args["state"]] += 1
                 gui.advance(overall, 1)
